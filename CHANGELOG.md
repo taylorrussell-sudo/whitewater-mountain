@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.1.1 (proposed) — 2026-11-26
+## v0.2 (proposed) — 2026-11-26
+
+- Add a simulated valley temperature inversion scenario, schematic cold valley air on the mountain profile, and a temperature-by-elevation plot comparing Nelson valley and Whitewater Lodge.
+- Display separate simulated observed and forecast inversion indicators. Show illustrative onset, duration, and dissipation when comparable forecast samples support them.
+- Document the provisional interpretation thresholds in Info and extend Chromium regression coverage for inversion signals, timing, and wall and mobile layouts.
+
+## v0.1.1 (merged) — 2026-11-26
 - Retain webcam selection focus and provide 44×44 CSS px minimum camera targets.
 - Fit powder rings, the seven-day forecast strip and avalanche tiles on narrow layouts.
 - Distinguish High and Extreme simulated avalanche accents and match the powder alert treatments to the Info tiers. Keep higher-tier glow static with reduced motion.

@@ -1,3 +1,3 @@
 # Latest handoff
 
-[Whitewater Mountain v0.1.1 baseline improvements](2026-11-26_1131_v0-1-1-baseline-improvements.md)
+[Whitewater Mountain v0.2 temperature inversion graphics](2026-11-26_1208_v0-2-temperature-inversions.md)
