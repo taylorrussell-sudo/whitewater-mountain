@@ -171,6 +171,26 @@ class DashboardTest(TestCase):
         expect(self.page.locator("#info")).to_contain_text("3°C to below 6°C")
         expect(self.page.locator("#info")).to_contain_text("6°C or greater")
 
+    def test_inversion_ski_context(self):
+        self.page.locator("#scenario").select_option("normal")
+        panel = self.page.locator("#inversion-ski-context")
+        expect(panel).to_be_hidden()
+        self.page.locator("#scenario").select_option("inversion")
+        expect(panel).to_be_visible()
+        expect(panel).to_contain_text("Observed · simulated:")
+        expect(panel).to_contain_text("Less cold at lodge; wind and snow quality still matter.")
+        expect(panel).to_contain_text("Valley fog / clear lodge (simulated).")
+        expect(panel).to_contain_text("Forecast peak · simulated:")
+        expect(panel).to_contain_text("Sky contrast unavailable.")
+        self.page.evaluate("sc.inversion.skyComparison.hour = 3; render()")
+        expect(panel).not_to_contain_text("Valley fog / clear lodge")
+        self.page.evaluate("sc.inversion.lodge = 2; render()")
+        expect(panel).to_contain_text("Above-freezing lodge air; snow softening possible.")
+        self.page.evaluate("sc.inversion.lodge = 0; render()")
+        expect(panel).to_contain_text("Lodge at freezing; snow response uncertain.")
+        self.page.locator("#scenario").select_option("normal")
+        expect(panel).to_be_hidden()
+
     def test_inversion_thresholds_and_comparable_pairs(self):
         cases = [
             (-1, "No positive inversion signal"), (0, "No positive inversion signal"),

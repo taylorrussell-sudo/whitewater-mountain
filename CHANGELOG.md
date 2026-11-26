@@ -1,6 +1,10 @@
 # Changelog
 
-## v0.2 (proposed) — 2026-11-26
+## v0.2.1 (proposed) — 2026-11-26
+- Add compact simulated skiing implications for observed and forecast inversion signals, including temperature-dependent softening potential and evidence-gated sky contrast.
+- Clarify forecast breakdown and atmospheric-profile limitations in Info. Add regression coverage; browser execution pending.
+
+## v0.2 (merged and published) — 2026-11-26
 
 - Add a simulated valley temperature inversion scenario, schematic cold valley air on the mountain profile, and a temperature-by-elevation plot comparing Nelson valley and Whitewater Lodge.
 - Display separate simulated observed and forecast inversion indicators. Show illustrative onset, duration, and dissipation when comparable forecast samples support them.
