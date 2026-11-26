@@ -1,6 +1,6 @@
 # Data sources and validation status
 
-The v0.2.1 prototype uses simulated data only. All numbers and webcam artwork are simulated/schematic. Candidate sources from planning (not approved or proven for automated redistribution):
+The v0.2.1 prototype uses simulated data only. All numbers and webcam artwork are simulated/schematic. Candidate sources for private household use (not yet approved or technically validated for automated collection):
 
 | Source | Candidate data | Status |
 |---|---|---|
@@ -15,7 +15,7 @@ The v0.2.1 prototype uses simulated data only. All numbers and webcam artwork ar
 
 Elevation references from planning (m, provisional): Nelson ~535; Apex/Busk Nordic 936; Glory lower ~1400; lodge 1630; Silver King top 1900; snow plot 1950; Summit top 2002; Glory top 2003; Raven top 2063; Ymir 2393. Verify with primary sources before live release; do not treat schematic geometry as surveyed terrain. Nordic Hall Creek weather station differs from Apex elevation. Exact lower Glory elevation uncertain.
 
-See README for simulation math. Preserve source timestamps and model issue times; distinguish retrieved time from observation time. Avoid a single blended forecast without documented methodology. Confirm snowfall units and windows. Treat any absent/expired official safety information as unavailable. GitHub Pages is static; live data service decision pending.
+See README for simulation math. Preserve source timestamps and model issue times; distinguish retrieved time from observation time. Avoid a single blended forecast without documented methodology. Confirm snowfall units and windows. Treat any absent/expired official safety information as unavailable. The approved direction is a private local service, not a public live Pages dashboard. Browser CORS is not a deployment dependency; server-side retrieval must still respect terms and access controls.
 
 ## Simulated inversion inputs
 
@@ -24,3 +24,7 @@ Every scenario includes a mock Nelson valley temperature paired with the existin
 The source elevations are provisional. A future implementation needs station and model provenance, comparable valid times, freshness checks, and validated elevations. The layer artwork is illustrative. Neither the sample values nor the forecast 0°C level establishes the shape or depth of a cold-air layer.
 
 The inversion scenario has one mock sky comparison (observed at scenario start: Nelson fog, lodge clear). The skiing context uses this only if its type and valid hour match the temperature pair. No forecast sky samples are supplied. Future sky/visibility, wind, precipitation and snow-surface inputs require separate validated sources and timestamps; an inversion alone cannot establish sunshine or snow quality.
+
+## Private-use validation policy
+
+Prioritize individual numerical observations from Whitewater (snowfall, snowpack, temperature and wind), official public API/feed discovery, source terms and permitted request frequency. Private use reduces redistribution concerns but is not blanket permission to automate collection. Do not copy proprietary narratives, bypass restrictions or collect/display prohibited material. Where applicable terms are materially unclear, document the blocker and leave automated retrieval disabled until clarified. Evaluate RWDI, cameras and other content separately. Keep live records and raw payloads out of GitHub. Validate model and observation timestamps, attribution, retention and permitted storage; a forecast or model-derived snow amount is never a measured resort report. Request only the minimum needed data, cache conservatively, and stop on access or rate-limit errors.

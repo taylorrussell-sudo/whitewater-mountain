@@ -19,18 +19,15 @@ python -B -m unittest discover -s tests -v
 
 Set `CHROMIUM_PATH` to the executable path to use an installed Chromium build. The suite checks official link destinations without opening them. Physical touchscreen and other browser checks are tracked in [BACKLOG.md](BACKLOG.md).
 
-## Publish to GitHub Pages (free public repository)
-1. Sign in to GitHub and create a NEW public repository `whitewater-mountain` (do not replace the existing OAuth homepage repository).
-2. Upload `index.html` and optionally `README.md` to the main branch root. Commit the files.
-3. In repository Settings → Pages, choose Deploy from a branch, main, / (root), Save.
-4. When GitHub displays the published URL, open it and check all five tabs and six scenarios. Share that exact URL with family. The expected project URL pattern is `https://<username>.github.io/whitewater-mountain/`; it is not live until deployed.
+## Deployment direction (approved 2026-11-26)
 
-Official instructions: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+One application, one codebase, one private household deployment on the Raspberry Pi. The existing public GitHub Pages v0.2.1 simulation is temporary family design feedback, not a second live environment. Retire Pages with separate approval when private hosting is verified, before enabling any public live-data access. Continue GitHub and Codex development using synthetic fixtures and local test servers. Keep all live weather records, caches and private configuration outside the repository.
 
-GitHub Pages is public, not a private sharing mechanism. The noindex directive is not access control. Keep private project handoffs, secrets and household configuration out of the repository. Repository-safe development handoffs live under [handoffs/](handoffs/LATEST.md).
+The intended architecture is a lightweight local service with independent server-side weather adapters, a validated cache, local history storage where permitted, and the existing responsive frontend. LAN access for the wall and family devices; optional authenticated private Tailscale access subject to verification and approval. No public Funnel or new paid service. Exact framework, service account, bind address, port, database and schedules are pending design and resource checks.
 
 ## Next steps
-Family design feedback first. Confirm sources/permissions and exact elevations, then implement and validate a separate cached live-data service, official avalanche expiry handling and weather-model uncertainty. No changes to Raspberry Pi/HA, Funnel or backup configuration until approved. Add new application/configuration paths to encrypted backup sources and verify a targeted restore before production deployment. Summer AQHI/PM2.5/smoke mode deferred.
+
+v0.3.0: validate open-data sources and investigate Whitewater numerical observation access and applicable terms for personal household use. No private-use exemption from access restrictions is assumed. Do not implement automated collection from prohibited or materially unclear sources until clarified. v0.3.1: local service/cache/storage proof of concept. v0.3.2: live frontend integration. v0.3.3: approved private deployment, recovery verification and Pages retirement. Keep existing Pi services unchanged. Before production, verify backup coverage for code, settings, service definitions and permitted non-reconstructible history; use consistent database snapshots and test a targeted restore. Keep public-repo documentation free of private system details. Summer mode deferred.
 
 ## Logic
 Six selectable scenarios. simulated daily snow totals are distributed uniformly over hourly bins for illustrative rolling 24-hour forecast windows (starts 0–48 hours inclusive). Actual alerts use the last 24h; forecast alerts use the maximum 24h total ending within 72h. Values are illustrative, not a calibrated forecast. Real data needs hourly timing, model provenance and validation. Alert levels: 0–4, 5–9, 10–14, 15–24, 25–39, 40+ cm. A qualitative powder interpretation is scenario-defined rather than a numerical scientific score. No safety rating is computed from powder conditions.
