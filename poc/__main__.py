@@ -10,8 +10,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .sources import (
-    HOUR, LODGE, NELSON, UTC, forecast_url, normalize_forecast, normalize_resort_report,
-    normalize_resort_weather, normalize_valley, require, snowfall_windows, utc, valley_url,
+    FORECAST_MODELS, HOUR, LODGE, MODEL, NELSON, UTC, forecast_url, normalize_forecast,
+    normalize_resort_report, normalize_resort_weather, normalize_valley, require,
+    snowfall_windows, utc, valley_url,
 )
 from .store import backup, open_store, read_cache, record
 from .synthetic import NOW, forecast_fixture, mountain_fixture, report_fixture, valley_fixture
@@ -38,7 +39,7 @@ def fetch_json(url):
         return json.loads(body), content_type
 
 
-def probe(source):
+def probe(source, model=MODEL):
     started_at = datetime.now(UTC)
     if source == "eccc":
         payload, content_type = fetch_json(valley_url(started_at))
@@ -54,13 +55,15 @@ def probe(source):
             "provider": newest["provider"], "attribution": newest["attribution"],
             "processed_at": newest["processed_at"],
             "newest_valid_at": newest["valid_at"], "age_seconds": age.total_seconds(),
-            "usable_readings": len(parsed["readings"]), "unit": "°C",
+            "usable_readings": len(parsed["readings"]),
+            "distinct_valid_times": len({row["valid_at"] for row in parsed["readings"]}),
+            "unit": "°C",
             "status": "fresh" if age <= 2 * HOUR else "stale",
         }
     else:
         point = LODGE if source == "forecast-lodge" else NELSON
-        payload, content_type = fetch_json(forecast_url(point))
-        parsed = normalize_forecast(payload, point)
+        payload, content_type = fetch_json(forecast_url(point, model))
+        parsed = normalize_forecast(payload, point, model)
         retrieved_at = datetime.now(UTC)
         windows = snowfall_windows(parsed, retrieved_at)
         diagnostics = {
@@ -69,6 +72,8 @@ def probe(source):
             "first_valid_at": datetime.fromtimestamp(parsed["times"][0], UTC).isoformat(),
             "last_valid_at": datetime.fromtimestamp(parsed["times"][-1], UTC).isoformat(),
             "hours": len(parsed["times"]),
+            "consecutive_utc_hours": all(b - a == 3600
+                                         for a, b in zip(parsed["times"], parsed["times"][1:])),
             "non_null_values": {key: sum(v is not None for v in items)
                                 for key, items in parsed["values"].items()},
             "complete_72h_snow_windows": windows["max_rolling_24h"] is not None,
@@ -102,16 +107,20 @@ def main():
     commands.add_parser("demo", help="Run the synthetic trial").add_argument("database", type=Path)
     check = commands.add_parser("probe", help="Run one open-data request without persisting a payload")
     check.add_argument("source", choices=["forecast-lodge", "forecast-valley", "eccc"])
+    check.add_argument("--model", choices=FORECAST_MODELS, help="Forecast model (defaults to GEM Global)")
     snapshot = commands.add_parser("backup", help="Make a checked snapshot of the demo database")
     snapshot.add_argument("database", type=Path)
     snapshot.add_argument("destination", type=Path)
     args = parser.parse_args()
+    if args.command == "probe" and args.source == "eccc" and args.model:
+        check.error("--model requires a forecast source")
     try:
         if args.command == "backup":
             backup(args.database, args.destination)
             print("SQLite snapshot checked and saved")
         else:
-            result = demo(args.database) if args.command == "demo" else probe(args.source)
+            result = (demo(args.database) if args.command == "demo"
+                      else probe(args.source, args.model or MODEL))
             print(json.dumps(result, indent=2, ensure_ascii=False))
     except (HTTPError, URLError, OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
         print(f"Validation failed: {exc}", file=sys.stderr)

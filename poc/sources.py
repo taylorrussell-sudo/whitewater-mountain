@@ -10,6 +10,10 @@ NELSON = {"latitude": 49.491389, "longitude": -117.305278, "elevation": 534.9}
 # Approximate forecast target. The resort does not publish sensor coordinates.
 LODGE = {"latitude": 49.443, "longitude": -117.146, "elevation": 1630}
 MODEL = "gem_global"
+FORECAST_MODELS = (
+    MODEL, "gem_regional", "gem_hrdps_continental", "gem_hrdps_west",
+    "ecmwf_ifs", "ecmwf_ifs025", "ecmwf_aifs025_single",
+)
 FORECAST_UNITS = {
     "temperature_2m": "°C", "snowfall": "cm", "wind_speed_10m": "km/h",
     "freezing_level_height": "m",
@@ -44,9 +48,10 @@ def hour_floor(value):
     return value.replace(minute=0, second=0, microsecond=0)
 
 
-def forecast_url(point):
+def forecast_url(point, model=MODEL):
+    require(model in FORECAST_MODELS, "Unsupported forecast model")
     return FORECAST_ENDPOINT + "?" + urlencode({
-        **point, "models": MODEL, "hourly": ",".join(FORECAST_UNITS),
+        **point, "models": model, "hourly": ",".join(FORECAST_UNITS),
         "timezone": "GMT", "timeformat": "unixtime", "forecast_hours": 169,
         "temperature_unit": "celsius", "wind_speed_unit": "kmh",
     })
@@ -60,23 +65,26 @@ def valley_url(now):
     })
 
 
-def normalize_forecast(payload, point):
+def normalize_forecast(payload, point, model=MODEL):
+    require(model in FORECAST_MODELS, "Unsupported forecast model")
     require(type(payload["utc_offset_seconds"]) is int
             and payload["utc_offset_seconds"] == 0, "Expected GMT")
     units = payload["hourly_units"]
     require(units["time"] == "unixtime", "Expected Unix seconds")
-    require(all(units.get(k) == unit for k, unit in FORECAST_UNITS.items()),
-            "Unexpected forecast units")
     hourly = payload["hourly"]
     times = hourly["time"]
     require(isinstance(times, list) and times, "No forecast times")
     for i, value in enumerate(times):
         require(type(value) is int and value % 3600 == 0, "Invalid UTC hour")
         require(i == 0 or value > times[i - 1], "Unordered or duplicate forecast hours")
-    for key in FORECAST_UNITS:
+    for key, unit in FORECAST_UNITS.items():
         values = hourly[key]
         require(isinstance(values, list) and len(values) == len(times),
                 f"Forecast array length differs for {key}")
+        # Open-Meteo marks unsupported freezing levels as an all-null series.
+        unavailable = (key == "freezing_level_height" and units.get(key) == "undefined"
+                       and all(value is None for value in values))
+        require(units.get(key) == unit or unavailable, f"Unexpected forecast unit for {key}")
         for value in values:
             if value is not None:
                 number(value, 0 if key in ("snowfall", "wind_speed_10m") else None)
@@ -87,7 +95,7 @@ def normalize_forecast(payload, point):
     }
     require(grid["elevation"] == point["elevation"], "Unexpected target elevation")
     return {
-        "kind": "forecast", "model": MODEL, "model_issued_at": None,
+        "kind": "forecast", "model": model, "model_issued_at": None,
         "endpoint": FORECAST_ENDPOINT, "requested_point": point, "returned_point": grid,
         "units": FORECAST_UNITS, "times": times,
         "values": {key: hourly[key] for key in FORECAST_UNITS},
@@ -149,10 +157,17 @@ def normalize_valley(payload):
             "provider": p.get("data_pvdr-value"),
             "attribution": p.get("data_attrib_not-value"),
         })
+    # Hourly AUTO and AUTO-minute can share an observation time. Keep both IDs
+    # and order ties by processing time so the latest probe summary is deterministic.
+    readings.sort(key=lambda row: (
+        utc(row["valid_at"]),
+        utc(row["processed_at"]) if row["processed_at"] else datetime.min.replace(tzinfo=UTC),
+        row["source_id"],
+    ))
     return {
         "kind": "measured", "station": "Nelson CS", "station_reference": NELSON,
         "endpoint": VALLEY_ENDPOINT,
-        "readings": sorted(readings, key=lambda row: (row["valid_at"], row["source_id"])),
+        "readings": readings,
     }
 
 

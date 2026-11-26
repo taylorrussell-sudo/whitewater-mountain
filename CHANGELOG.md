@@ -1,9 +1,14 @@
 # Changelog
 
-## v0.3.0 (proposed) — 2026-11-26
+## v0.3.0 live source validation (proposed) — 2026-11-26
+
+- Verify live lodge and valley forecasts and Nelson CS temperatures. Accept the observed all-null freezing-level response while retaining strict units and shape checks. Report separate valid-time counts for overlapping Nelson SWOB products.
+- Add manual forecast model selection and document live GEM and ECMWF coverage, Southridge ridge observations and Redfish Creek snowpack exports. Whitewater automated collection remains disabled.
+
+## v0.3.0 proof of concept (merged) — 2026-11-26
 
 - Document Whitewater report and station evidence, access restrictions, regional alternatives, Open-Meteo forecast semantics and the ECCC Nelson CS candidate.
-- Add an isolated Python/SQLite prototype with synthetic source contracts, rolling snowfall calculations, freshness and failure handling, history and checked SQLite snapshots. Add manual open-data diagnostics and reproducible tests. Live API response checks remain pending.
+- Add an isolated Python/SQLite prototype with synthetic source contracts, rolling snowfall calculations, freshness and failure handling, history and checked SQLite snapshots. Add manual open-data diagnostics and reproducible tests. Live probes were blocked by workspace egress during this milestone.
 
 ## Architecture decision — 2026-11-26
 - Approved single private household deployment on the Raspberry Pi. Existing public simulation is temporary design feedback; no second live environment. Prioritize source validation including Whitewater numerical observations, then local service/cache and private deployment. No code or infrastructure changes in this decision.
