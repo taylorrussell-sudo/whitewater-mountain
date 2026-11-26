@@ -1,15 +1,20 @@
-"""Read-only JSON views. A request never triggers collection."""
+"""Loopback dashboard, cache views and a scheduler request endpoint."""
 
 import json
 import logging
 import sqlite3
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from poc.sources import snowfall_windows, utc
 
 from . import store
 from .sources import DISABLED, NELSON_CS, SOURCES
+
+ROOT = Path(__file__).resolve().parents[1]
+DASHBOARD = ROOT / "index.html"
+LIVE_SCRIPT = Path(__file__).with_name("dashboard.js")
 
 
 def coverage(times, data, after):
@@ -90,11 +95,12 @@ def weather(db, enabled, now):
 class LocalAPI(ThreadingHTTPServer):
     timeout = 0.5
 
-    def __init__(self, port, path, enabled, collector_failed, clock):
+    def __init__(self, port, path, enabled, collector_failed, clock, collector=None):
         self.path = path
         self.enabled = enabled
         self.collector_failed = collector_failed
         self.clock = clock
+        self.collector = collector
         super().__init__(("127.0.0.1", port), Handler)
 
 
@@ -106,24 +112,65 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def reply(self, status, payload):
-        data = store.encode(payload).encode()
+    def send_content(self, status, data, content_type, retry_in=0):
         self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("Content-Security-Policy",
+                         "default-src 'none'; script-src 'self' 'unsafe-inline'; "
+                         "style-src 'unsafe-inline'; connect-src 'self'; "
+                         "frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+        if retry_in:
+            self.send_header("Retry-After", str(retry_in))
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.wfile.write(data)
+        except (ConnectionError, TimeoutError):
+            pass
 
-    def do_GET(self):
+    def reply(self, status, payload, retry_in=0):
+        self.send_content(status, store.encode(payload).encode(), "application/json; charset=utf-8", retry_in)
+
+    def is_local(self, require_origin=False):
         port = self.server.server_port
         hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
         if port == 80:
             hosts.update(("127.0.0.1", "localhost"))
-        origins = {"http://" + host for host in hosts}
-        if self.headers.get("Host") not in hosts or self.headers.get("Origin", None) not in origins | {None}:
+        host = self.headers.get_all("Host")
+        origin = self.headers.get_all("Origin")
+        return (host is not None and len(host) == 1 and host[0] in hosts
+                and (origin == ["http://" + host[0]] or (origin is None and not require_origin)))
+
+    def do_POST(self):
+        if not self.is_local(require_origin=True):
+            self.reply(403, {"error": "same_origin_required"})
+            return
+        if self.path != "/v1/refresh":
+            self.reply(404, {"error": "not_found"})
+            return
+        if (self.headers.get_all("X-Mountain-Refresh") != ["1"]
+                or self.headers.get("Transfer-Encoding") is not None
+                or self.headers.get_all("Content-Length") not in (None, ["0"])):
+            self.reply(400, {"error": "invalid_refresh_request"})
+            return
+        if self.server.collector is None or self.server.collector_failed.is_set():
+            self.reply(503, {"error": "collector_unavailable"})
+            return
+        status, error = self.server.collector.request_refresh()
+        refresh = self.server.collector.refresh_status()
+        self.reply(status, {"error": error, "refresh": refresh},
+                   refresh["retry_in"] if status == 429 else 0)
+
+    def do_GET(self):
+        if not self.is_local():
             self.reply(403, {"error": "local_requests_only"})
+            return
+        if self.path in ("/", "/index.html", "/dashboard.js", "/v1/refresh"):
+            self.dashboard_route()
             return
         now = int(self.server.clock())
         try:
@@ -133,10 +180,22 @@ class Handler(BaseHTTPRequestHandler):
         except sqlite3.Error:
             logging.exception("API database read failed")
             status, payload = 503, {"error": "database_unavailable"}
-        try:
-            self.reply(status, payload)
-        except (ConnectionError, TimeoutError):
-            pass
+        self.reply(status, payload)
+
+    def dashboard_route(self):
+        if self.path == "/v1/refresh":
+            if self.server.collector is None:
+                self.reply(503, {"error": "collector_unavailable"})
+            else:
+                self.reply(200, self.server.collector.refresh_status())
+            return
+        if self.path == "/dashboard.js":
+            self.send_content(200, LIVE_SCRIPT.read_bytes(), "text/javascript; charset=utf-8")
+            return
+        html = DASHBOARD.read_text(encoding="utf-8").replace(
+            '<body>', '<body data-live>', 1).replace(
+            '</body>', '<script src="/dashboard.js"></script></body>', 1)
+        self.send_content(200, html.encode(), "text/html; charset=utf-8")
 
     def route(self, db, now):
         if self.path == "/healthz":

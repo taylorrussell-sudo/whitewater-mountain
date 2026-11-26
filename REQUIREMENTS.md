@@ -1,6 +1,6 @@
 # Mountain Dashboard requirements
 
-Status: agreed design direction, implementation coverage varies. The published v0.2.1 prototype is simulated only; private live deployment is the approved direction.
+Status — v0.3.2 adds the private dashboard integration for review. The public v0.2.1 prototype remains simulated.
 
 ## Core winter experience
 - Whitewater-centric overview with five internal tabs: Overview, Powder, Webcams, Avalanche, Info. Main wall application eventually includes Mountain alongside Calendar, Home, Music and Lists.
@@ -17,3 +17,11 @@ Status: agreed design direction, implementation coverage varies. The published v
 - One application/codebase and one private household live deployment. The existing public simulated Pages site is temporary feedback only; retire it after verifying private hosting and before any public live-data access. GitHub/Codex fixture-based development is not a second deployment. Local service collects authorized data, caches with provenance/freshness, and stores permitted history; family access by LAN or separately approved private authenticated network. No public Pi exposure or paid services. Validate source terms, privacy, resource impact, rollback and backup coverage before production; exact implementation and access changes require separate approval.
 
 - Keep the primary IFS 9 km outlook and HRDPS 2.5 km guidance separate. Use ECCC Nelson CS for measured valley temperature. Provide freezing-level guidance from an independently attributed vertical profile, preserving multiple supported crossings and leaving unbracketed heights unavailable. Keep Whitewater and Southridge collection disabled pending permission. The private API must include source provenance, valid and retrieval times, freshness and missing-data status.
+
+## Private live dashboard and refresh
+
+- Use ECMWF IFS HRES for the seven-day lodge forecast and rolling 24-hour powder alert. Show accumulation for 24, 48 and 72 complete forecast hours. Label Canadian HRDPS independently as short-range guidance and preserve missing hours.
+- Display QA-accepted Nelson CS measured temperature with its station valid time. Show modeled lodge values as forecasts. Keep missing measurements unavailable. Whitewater and Southridge collection remains disabled pending permission.
+- Display every resolved NOAA GFS 0 °C crossing and exact-zero altitude band, including separate representations for a sampled profile with no crossing and insufficient coverage. Derive forecast inversions from matching, same-model lodge and valley hours. Keep missing hours out of the inversion timing brackets.
+- Show source credit, licence, freshness, last checked, last successful check and available source valid times. Keep stale values out of active indicators and retain last successful cache entries on failed refreshes.
+- Send Refresh Data through the same private scheduler as automatic collection. Allow one manual batch at a time with a server-wide 60-second request cooldown and enforce provider request spacing, retry due times and stop periods. Show progress and per-source outcomes. Require a same-origin, validated POST on the loopback service.
