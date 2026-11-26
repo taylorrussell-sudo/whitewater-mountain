@@ -23,7 +23,7 @@ Set `CHROMIUM_PATH` to the executable path to use an installed Chromium build. T
 
 One application, one codebase, one private household deployment on the Raspberry Pi. The existing public GitHub Pages v0.2.1 simulation is temporary family design feedback, not a second live environment. Retire Pages with separate approval when private hosting is verified, before enabling any public live-data access. Continue GitHub and Codex development using synthetic fixtures and local test servers. Keep all live weather records, caches and private configuration outside the repository.
 
-The intended architecture is a lightweight local service with independent server-side weather adapters, a validated cache, local history storage where permitted, and the existing responsive frontend. LAN access for the wall and family devices; optional authenticated private Tailscale access subject to verification and approval. No public Funnel or new paid service. Exact framework, service account, bind address, port, database and schedules are pending design and resource checks.
+The intended architecture is a lightweight local service with independent server-side weather adapters, a validated cache, local history storage where permitted, and the existing responsive frontend. LAN access for the wall and family devices; optional authenticated private Tailscale access subject to verification and approval. No public Funnel or new paid service. The proposed v0.3.1 [local collection service](mountain_service/README.md) defines the loopback API, SQLite retention and backup, and per-source schedules. Production service account, access and recovery checks are deferred to private deployment.
 
 ## Next steps
 
