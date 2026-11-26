@@ -33,10 +33,11 @@
     failed: 'Check failed', backoff: 'Skipped · source backoff',
     provider_blocked: 'Skipped · provider blocked', provider_cooldown: 'Skipped · provider cooldown',
     recently_checked: 'Skipped · recently checked', interrupted: 'Interrupted',
+    weather_budget_exhausted: 'Skipped · daily weather budget used',
   };
   const sourceNames = {
     ifs: 'ECMWF IFS HRES', hrdps: 'Canadian HRDPS', nelson_cs: 'Nelson CS',
-    freezing_profile: 'NOAA GFS', whitewater: 'Whitewater resort', southridge: 'Southridge',
+    freezing_profile: 'NOAA GFS', drivebc_whitewater: 'DriveBC', whitewater: 'Whitewater resort', southridge: 'Southridge',
   };
 
   const html = (id, value) => {
@@ -204,7 +205,7 @@
   }
 
   function sourceDetails(weather, refresh) {
-    html('live-sources', Object.entries(sourceNames).map(([key, name]) => {
+    html('live-sources', Object.entries(sourceNames).filter(([key]) => key !== 'drivebc_whitewater').map(([key, name]) => {
       const source = weather?.sources[key];
       const data = source?.data;
       const coverage = data?.points?.lodge.coverage.temperature_2m ?? data?.coverage?.crossings;
@@ -228,8 +229,116 @@
     }).join(''));
   }
 
+  const road = 5;
+  const roadLink = 'https://www.drivebc.ca/cameras/759';
+  const licenceLink = 'https://www2.gov.bc.ca/gov/content/data/open-data/open-government-licence-bc';
+  const cameraNames = ['Day Lodge', 'Summit', 'Raven', 'Glory Ridge', 'Weather Stick', 'Hwy 6 junction'];
+  const roadAlt = 'DriveBC view north along Highway 6 at the Whitewater Ski Hill Road junction';
+  const cameraCredit = link(licenceLink, 'Contains information licensed under the Open Government Licence – British Columbia');
+  const still = (enlarge = true) => `<div class="camera live-camera">
+    ${enlarge ? `<button type="button" data-enlarge aria-label="Enlarge Highway 6 junction camera" hidden><img alt="${roadAlt}"><span class="camera-enlarge-label" aria-hidden="true">Enlarge</span></button>`
+      : `<img alt="${roadAlt}" hidden>`}
+    <p class="camera-empty">Image unavailable</p></div>
+    <p class="live-camera-date"></p>`;
+  const cameraLinks = index => index === road
+    ? link(roadLink, 'Official DriveBC camera')
+    : link(cams[index][2], 'Official resort image');
+  const resortUnavailable = '<div class="camera live-camera" data-empty><p class="camera-empty">Image unavailable here · display permission pending</p></div>';
+
+  cameraButtons.forEach((button, i) => { button.textContent = cameraNames[i]; });
+  const galleryOrder = [road, 0, 1, 2, 3, 4];
+  html('cameragrid', galleryOrder.map(index => `<article class="card"${index === road ? ' id="road-camera"' : ''}>
+    <h3>${cameraNames[index]}${index === road ? ' · Whitewater Ski Hill Road' : ''}</h3>
+    ${index === road ? still() : resortUnavailable}
+    <div class="linkline live-camera-links">${cameraLinks(index)}</div>
+    ${index === road ? `<small>${cameraCredit}</small>` : ''}</article>`).join(''));
+  $('cameragrid').insertAdjacentHTML('afterend', `<p class="smallnote">Other Highway 6 views ·
+    ${link('https://www.drivebc.ca/cameras/305', 'Nelson south')} ·
+    ${link('https://www.drivebc.ca/cameras/626', 'Ymir')}</p>`);
+  document.body.insertAdjacentHTML('beforeend', `<dialog id="camera-dialog" aria-labelledby="camera-dialog-title">
+    <div class="cardhead"><h2 id="camera-dialog-title">Hwy 6 junction · DriveBC</h2>
+    <form method="dialog"><button type="submit" autofocus>Close</button></form></div>
+    ${still(false)}<div class="linkline live-camera-links">${cameraLinks(road)}</div>
+    <small>${cameraCredit}</small></dialog>`);
+  const cameraDialog = $('camera-dialog');
+
+  function updateStill(container, camera) {
+    const image = container.querySelector('img');
+    if (!image) return;
+    const target = container.querySelector('[data-enlarge]') ?? image;
+    const empty = container.querySelector('.camera-empty');
+    const dateLabel = container.querySelector('.live-camera-date');
+    const path = camera?.image ?? null;
+    target.closest('.live-camera').toggleAttribute('data-empty', !path);
+    if (path !== image.getAttribute('src')) {
+      if (path) {
+        empty.textContent = 'Loading still…';
+        image.onload = () => {
+          target.hidden = false;
+          empty.hidden = true;
+        };
+        image.onerror = () => {
+          target.hidden = true;
+          empty.hidden = false;
+          empty.textContent = 'Image unavailable';
+        };
+        image.src = path;
+      } else {
+        image.onload = image.onerror = null;
+        image.removeAttribute('src');
+        target.hidden = true;
+        empty.hidden = false;
+      }
+    }
+    if (!path) empty.textContent = camera?.status === 'disabled' ? 'Camera collection disabled' : 'Image unavailable';
+    const stale = camera?.status === 'stale';
+    dateLabel.toggleAttribute('data-stale', stale);
+    dateLabel.textContent = path ? `${stale ? 'Stale · ' : ''}DriveBC feed updated ${time(camera.updated_at)}` : '';
+  }
+
+  function renderCameras(camera) {
+    updateStill($('camhero'), camera);
+    updateStill($('road-camera'), camera);
+    if (cameraDialog.open) updateStill(cameraDialog, camera);
+  }
+
+  function renderCameraSelection() {
+    html('camhero', cam === road ? still() : resortUnavailable);
+    html('camlink', cameraLinks(cam) + (cam === road ? `<small>${cameraCredit}</small>` : ''));
+    updateStill($('camhero'), weather?.camera);
+  }
+
+  document.addEventListener('click', event => {
+    if (!event.target.closest('[data-enlarge]')) return;
+    cameraDialog.showModal();
+    updateStill(cameraDialog, weather?.camera);
+  });
+  cameraDialog.addEventListener('close', () => {
+    const image = cameraDialog.querySelector('img');
+    image.onload = image.onerror = null;
+    image.hidden = true;
+    image.removeAttribute('src');
+    cameraDialog.querySelector('.camera-empty').hidden = false;
+  });
+
   const refreshButton = $('refresh-button');
   let weather, refresh, posting = false, timer, requestError = '', pollGeneration = 0;
+  try {
+    const selection = localStorage.getItem('whitewater.camera');
+    cam = selection !== null && /^[0-5]$/.test(selection) ? Number(selection) : road;
+  } catch {
+    cam = road;
+  }
+  cameraChips.addEventListener('camera-selection', () => {
+    try {
+      localStorage.setItem('whitewater.camera', String(cam));
+    } catch {
+      // The current page still preserves selection when storage is blocked.
+    }
+    renderCameraSelection();
+  });
+  renderCam();
+
   const busy = () => ['queued', 'running'].includes(refresh?.state);
 
   async function read(path) {
@@ -239,15 +348,19 @@
   }
 
   function showStatus() {
-    const enabled = weather && Object.values(weather.sources).some(source => source.status !== 'disabled');
+    const enabled = weather && (['fresh', 'stale', 'unavailable'].includes(weather.camera?.status)
+      || Object.values(weather.sources).some(source => source.status !== 'disabled'));
     refreshButton.disabled = !enabled || !refresh || posting || busy() || refresh.retry_in > 0;
+    const budget = refresh?.weather_budget;
+    text('weather-budget', budget
+      ? ` · Early weather checks ${budget.remaining}/${budget.limit} left` : '');
     const products = Object.entries(sourceNames).slice(0, 4);
     text('live-summary', weather ? products.map(([key, name]) =>
       `${name} ${lower(sourceStatus(weather.sources[key]))}`).join(' · ') :
       'Weather service unavailable');
     const counts = Object.entries(refresh?.outcomes ?? {});
     const status = posting ? 'Requesting refresh…' : requestError || ({
-      queued: 'Refresh queued.', running: 'Refreshing weather…',
+      queued: 'Refresh queued.', running: 'Checking data sources…',
       complete: 'Refresh finished.', failed: 'Refresh interrupted.',
     })[refresh?.state] || '';
     const details = counts.map(([key, outcome]) => `${sourceNames[key]} ${lower(outcomes[outcome])}`);
@@ -269,6 +382,7 @@
       requestError = '';
     }
     renderWeather(weather);
+    renderCameras(weather?.camera);
     showStatus();
     timer = setTimeout(poll, busy() || refresh?.retry_in > 0 ? 1000 : 15000);
   }

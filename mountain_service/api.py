@@ -9,7 +9,7 @@ from pathlib import Path
 
 from poc.sources import snowfall_windows, utc
 
-from . import store
+from . import cameras, store
 from .sources import DISABLED, NELSON_CS, SOURCES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,6 +92,20 @@ def weather(db, enabled, now):
                                       for key, source in SOURCES.items()}}}
 
 
+def camera_view(db, enabled, frame, now):
+    source = cameras.DRIVEBC
+    if source.key not in enabled:
+        return {"status": "disabled"}
+    row = store.state(db, source.key)
+    result = {"status": "unavailable", "last_error": row["error"] if row else None}
+    if frame is None or not 0 <= now - frame.modified <= cameras.MAX_AGE:
+        return result
+    stale = frame.delayed or now - frame.modified > source.fresh_for or result["last_error"] == "camera_offline"
+    return {**result, "status": "stale" if stale else "fresh",
+            "updated_at": store.iso(frame.modified),
+            "image": f"/v1/cameras/{source.key}/{frame.revision}.jpg"}
+
+
 class LocalAPI(ThreadingHTTPServer):
     timeout = 0.5
 
@@ -112,17 +126,17 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def send_content(self, status, data, content_type, retry_in=0):
+    def send_content(self, status, data, content_type, retry_in=0, cache="no-store"):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Cross-Origin-Resource-Policy", "same-origin")
         self.send_header("Content-Security-Policy",
                          "default-src 'none'; script-src 'self' 'unsafe-inline'; "
-                         "style-src 'unsafe-inline'; connect-src 'self'; "
+                         "style-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; "
                          "frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
         if retry_in:
             self.send_header("Retry-After", str(retry_in))
@@ -161,7 +175,11 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(503, {"error": "collector_unavailable"})
             return
         status, error = self.server.collector.request_refresh()
-        refresh = self.server.collector.refresh_status()
+        try:
+            refresh = self.server.collector.refresh_status()
+        except sqlite3.Error:
+            self.reply(503, {"error": "database_unavailable"})
+            return
         self.reply(status, {"error": error, "refresh": refresh},
                    refresh["retry_in"] if status == 429 else 0)
 
@@ -173,6 +191,9 @@ class Handler(BaseHTTPRequestHandler):
             self.dashboard_route()
             return
         now = int(self.server.clock())
+        if self.path.startswith("/v1/cameras/"):
+            self.camera_image(now)
+            return
         try:
             with store.connect(self.server.path) as db, db:
                 db.execute("BEGIN")
@@ -182,12 +203,27 @@ class Handler(BaseHTTPRequestHandler):
             status, payload = 503, {"error": "database_unavailable"}
         self.reply(status, payload)
 
+    def camera_image(self, now):
+        frame = self.server.collector.camera_frame if self.server.collector else None
+        key = cameras.DRIVEBC.key
+        if (key in self.server.enabled and frame is not None
+                and 0 <= now - frame.modified <= cameras.MAX_AGE
+                and self.path == f"/v1/cameras/{key}/{frame.revision}.jpg"):
+            self.send_content(200, frame.jpeg, "image/jpeg", cache="private, max-age=300")
+        else:
+            self.reply(404, {"error": "not_found"})
+
     def dashboard_route(self):
         if self.path == "/v1/refresh":
             if self.server.collector is None:
                 self.reply(503, {"error": "collector_unavailable"})
             else:
-                self.reply(200, self.server.collector.refresh_status())
+                try:
+                    refresh = self.server.collector.refresh_status()
+                except sqlite3.Error:
+                    self.reply(503, {"error": "database_unavailable"})
+                else:
+                    self.reply(200, refresh)
             return
         if self.path == "/dashboard.js":
             self.send_content(200, LIVE_SCRIPT.read_bytes(), "text/javascript; charset=utf-8")
@@ -204,7 +240,9 @@ class Handler(BaseHTTPRequestHandler):
                 return 503, {"status": "degraded"}
             return 200, {"status": "ok"}
         if self.path == "/v1/weather":
-            return 200, weather(db, self.server.enabled, now)
+            frame = self.server.collector.camera_frame if self.server.collector else None
+            return 200, {**weather(db, self.server.enabled, now),
+                         "camera": camera_view(db, self.server.enabled, frame, now)}
         if self.path == "/v1/observations/nelson":
             enabled = NELSON_CS.key in self.server.enabled
             return 200, {"api_version": 1, "as_of": store.iso(now), "source": NELSON_CS.metadata(),

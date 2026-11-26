@@ -13,12 +13,14 @@ from pathlib import Path
 from threading import Event, Thread
 
 from . import store
+from .cameras import DRIVEBC
 from .api import LocalAPI, coverage
 from .collect import Collector, FetchError, fetch_json, sample
 from .sources import SOURCES
 
 REPOSITORY = Path(__file__).resolve().parents[1]
-PROVIDERS = sorted({source.provider for source in SOURCES.values()})
+COLLECTABLE = {**SOURCES, DRIVEBC.key: DRIVEBC}
+PROVIDERS = sorted({source.provider for source in COLLECTABLE.values()})
 
 
 def private_path(value):
@@ -43,7 +45,7 @@ def serve(path, port, enabled):
     with service_lock(path):
         store.prepare(path)
         stop, failed = Event(), Event()
-        collector = Collector(path, [source for key, source in SOURCES.items() if key in enabled])
+        collector = Collector(path, [source for key, source in COLLECTABLE.items() if key in enabled])
 
         def stop_service(signum, frame):
             stop.set()
@@ -93,7 +95,7 @@ def main():
     local = commands.add_parser("serve", help="run the loopback API and scheduled collection")
     local.add_argument("--db", required=True)
     local.add_argument("--port", type=int, default=8765)
-    local.add_argument("--collect", choices=SOURCES, action="append", default=[])
+    local.add_argument("--collect", choices=COLLECTABLE, action="append", default=[])
     inspect = commands.add_parser("probe", help="perform one live request and print coverage only")
     inspect.add_argument("source", choices=SOURCES)
     for name in ("backup", "restore"):

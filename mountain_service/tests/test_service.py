@@ -13,7 +13,7 @@ from poc.synthetic import NOW, forecast_fixture, valley_fixture
 
 from mountain_service import store
 from mountain_service.api import weather
-from mountain_service.collect import Collector, FetchError, retry_after
+from mountain_service.collect import Collector, DAILY_WEATHER_REFRESHES, FetchError, retry_after
 from mountain_service.sources import FREEZING, HRDPS, IFS, NELSON_CS, PROFILE_FIELDS, crossings
 
 ANCHOR = int(NOW.timestamp())
@@ -130,15 +130,61 @@ class StoreTest(unittest.TestCase):
             store.save(db, NELSON_CS, self.now, None, "http_403", 0, self.now + 3600,
                        (True, None))
             self.now += 120
-            self.assertEqual(collector.refresh_if_due(db, IFS, manual=True), "provider_cooldown")
-            self.assertEqual(collector.refresh_if_due(db, HRDPS, manual=True), "provider_cooldown")
-            self.assertEqual(collector.refresh_if_due(db, NELSON_CS, manual=True), "provider_blocked")
+            self.assertEqual(collector.refresh_if_due(db, IFS, set()), "provider_cooldown")
+            self.assertEqual(collector.refresh_if_due(db, HRDPS, set()), "provider_cooldown")
+            self.assertEqual(collector.refresh_if_due(db, NELSON_CS, set()), "provider_blocked")
             self.assertEqual(calls, [])
             self.now += 180
-            self.assertEqual(collector.refresh_if_due(db, IFS, manual=True), "failed")
+            self.assertEqual(collector.refresh_if_due(db, IFS, set()), "failed")
             self.now += 60
-            self.assertEqual(collector.refresh_if_due(db, IFS, manual=True), "backoff")
+            self.assertEqual(collector.refresh_if_due(db, IFS, set()), "backoff")
             self.assertEqual(len(calls), 1)
+
+    def test_manual_weather_budget_persists_and_preserves_due_checks(self):
+        # Exercise an existing database that predates the additive migration.
+        with store.connect(self.path, write=True) as db, db:
+            db.execute("DROP TABLE manual_weather_budget")
+        store.prepare(self.path)
+        self.now = ANCHOR // 86400 * 86400 + 3600
+        calls = []
+
+        def fetch(url):
+            calls.append(url)
+            return forecast(self.now, 48)
+
+        sources = (IFS, HRDPS)
+        collector = Collector(self.path, sources, lambda: self.now, fetch)
+        collector.cycle()
+        for index in range(DAILY_WEATHER_REFRESHES):
+            self.now += 61
+            collector.cycle(manual=True)
+            self.assertEqual(collector.refresh_status()["weather_budget"]["remaining"],
+                             DAILY_WEATHER_REFRESHES - index - 1)
+        self.assertEqual(len(calls), 2 * (1 + DAILY_WEATHER_REFRESHES))
+
+        collector = Collector(self.path, sources, lambda: self.now, fetch)
+        self.now += 61
+        collector.cycle(manual=True)
+        self.assertEqual(set(collector.outcomes.values()), {"weather_budget_exhausted"})
+        self.assertEqual(len(calls), 2 * (1 + DAILY_WEATHER_REFRESHES))
+        self.now += IFS.interval
+        collector.cycle(manual=True)
+        self.assertEqual(set(collector.outcomes.values()), {"updated"})
+        self.assertEqual(len(calls), 2 * (2 + DAILY_WEATHER_REFRESHES))
+        self.assertEqual(collector.refresh_status()["weather_budget"]["remaining"], 0)
+        self.now = (self.now // 86400 + 1) * 86400
+        self.assertEqual(collector.refresh_status()["weather_budget"]["remaining"], DAILY_WEATHER_REFRESHES)
+
+        with store.connect(self.path, write=True) as db:
+            for source in sources:
+                store.save(db, source, self.now - 61, {}, None, 0, self.now + 60)
+        def failing_fetch(url):
+            raise FetchError("http_503")
+
+        collector.fetch = failing_fetch
+        collector.cycle(manual=True)
+        self.assertEqual(set(collector.outcomes.values()), {"failed"})
+        self.assertEqual(collector.refresh_status()["weather_budget"]["remaining"], DAILY_WEATHER_REFRESHES - 1)
 
     def test_scheduler_restart_good_cache_and_source_failure(self):
         calls = []

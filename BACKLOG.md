@@ -14,8 +14,10 @@
 - [ ] Validate forecast performance over multiple weather events against comparable measured records where permitted. Compare the derived GFS freezing-level profile with independent evidence over multiple events and verify run identifiers before using model-run freshness.
 - [x] v0.3.1 implemented for review. The private [Python/SQLite service](mountain_service/README.md) provides independent IFS, HRDPS, Nelson CS and GFS freezing-profile adapters, bounded retention, backup/restore and a loopback API. Development verification only.
 - [x] v0.3.2 implemented for review. Integrate IFS, HRDPS, Nelson CS and GFS with the private dashboard, and add scheduler-driven Refresh Data. Keep static simulation for design regression. [Service guide](mountain_service/README.md)
+- [x] v0.3.2.1 implemented for review. Add the licensed DriveBC junction still, manual weather budget and off-repository wall/mobile visual review. [Camera evidence](DATA_SOURCES.md#webcam-validation-in-v0321)
 - [ ] v0.3.3: approved private Pi deployment, LAN/family access, optional authenticated private remote access, resource and boot checks, backup-source amendments and targeted recovery verification. Retire public Pages with approval after private hosting is verified and before public live data access. No changes to existing services or public Funnel.
-- [ ] v0.4: verify camera access/display rights and timestamps, Nordic and DriveBC data, Avalanche Canada region/API and expiry semantics before real ratings. Family/physical-device acceptance and wall navigation integration.
+- [ ] Obtain written Whitewater webcam display and recurring access permission. Confirm supported cadence, camera clocks and off-season availability before enabling the five resort feeds.
+- [ ] v0.4: validate Nordic and DriveBC road reports, Avalanche Canada region/API and expiry semantics before real ratings. Family/physical-device acceptance and wall navigation integration.
 
 ## Later
 - Forecast snowfall timing relative to lift opening; weekend preview; calibrated qualitative powder outlook and model agreement; local season snowfall history and forecast accuracy (subject to permissions); rain-on-snow detection; weather inversions from validated real data.

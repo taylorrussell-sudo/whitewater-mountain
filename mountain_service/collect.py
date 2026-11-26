@@ -11,12 +11,14 @@ from threading import Event, Lock
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from . import store
+from . import cameras, store
 
 MAX_BODY = 1024 * 1024
 HTTP_TIMEOUT = 8
 HTTP_BODY_DEADLINE = 15
 MANUAL_COOLDOWN = 60
+DAILY_WEATHER_REFRESHES = 6
+DAY = 86400
 
 
 class FetchError(Exception):
@@ -45,23 +47,25 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def fetch_json(url):
-    request = Request(url, headers={"User-Agent": "Whitewater Mountain Dashboard/0.3.2 (private household)",
-                                    "Accept": "application/json, application/geo+json"})
+def fetch_body(url, accepted_types, limit):
+    request = Request(url, headers={
+        "User-Agent": "Whitewater Mountain Dashboard/0.3.2.1 (private household)",
+        "Accept": ", ".join(accepted_types),
+    })
     try:
         with build_opener(NoRedirect()).open(request, timeout=HTTP_TIMEOUT) as response:
-            if response.headers.get_content_type() not in ("application/json", "application/geo+json"):
+            if response.headers.get_content_type() not in accepted_types:
                 raise FetchError("unexpected_content_type", "interval")
             deadline = time.monotonic() + HTTP_BODY_DEADLINE
             body = bytearray()
-            while len(body) <= MAX_BODY:
+            while len(body) <= limit:
                 if time.monotonic() > deadline:
                     raise FetchError("timeout")
-                chunk = response.read1(min(65536, MAX_BODY + 1 - len(body)))
+                chunk = response.read1(min(65536, limit + 1 - len(body)))
                 if not chunk:
                     break
                 body.extend(chunk)
-            if len(body) > MAX_BODY:
+            if len(body) > limit:
                 raise FetchError("response_too_large", "interval")
     except HTTPError as exc:
         with exc:
@@ -84,6 +88,11 @@ def fetch_json(url):
         raise FetchError("transport_error") from None
     except (OSError, HTTPException):
         raise FetchError("transport_error") from None
+    return bytes(body)
+
+
+def fetch_json(url):
+    body = fetch_body(url, ("application/json", "application/geo+json"), MAX_BODY)
     try:
         return json.loads(body)
     except (ValueError, RecursionError):
@@ -99,11 +108,14 @@ def sample(source, start, clock, fetch):
 
 
 class Collector:
-    def __init__(self, path, sources, clock=time.time, fetch=fetch_json, monotonic=time.monotonic):
+    def __init__(self, path, sources, clock=time.time, fetch=fetch_json, monotonic=time.monotonic,
+                 fetch_image=None):
         self.path = path
         self.sources = sources
         self.clock = clock
         self.fetch = fetch
+        self.fetch_image = fetch_image or (lambda url: fetch_body(url, ("image/jpeg",), cameras.MAX_IMAGE))
+        self.camera_frame = None
         self.next_prune = 0
         self.monotonic = monotonic
         self.wake = Event()
@@ -113,10 +125,14 @@ class Collector:
         self.manual_allowed_at = 0
 
     def refresh_status(self):
-        with self.lock:
+        day = int(self.clock()) // DAY
+        with store.connect(self.path) as db, self.lock:
+            remaining = DAILY_WEATHER_REFRESHES - store.manual_weather_used(db, day)
             return {
                 "state": self.refresh_state,
                 "outcomes": self.outcomes.copy(),
+                "weather_budget": {"limit": DAILY_WEATHER_REFRESHES, "remaining": max(0, remaining),
+                                   "resets_at": store.iso((day + 1) * DAY)},
                 "retry_in": max(0, math.ceil(self.manual_allowed_at - self.monotonic())),
             }
 
@@ -141,18 +157,19 @@ class Collector:
             if now >= self.next_prune:
                 store.prune(db, now)
                 self.next_prune = now + 3600
+            charged_days = set()
             for source in self.sources:
                 if stop is not None and stop.is_set():
                     return
                 if manual:
                     with self.lock:
                         self.outcomes[source.key] = "checking"
-                outcome = self.refresh_if_due(db, source, manual)
+                outcome = self.refresh_if_due(db, source, charged_days if manual else None)
                 if manual:
                     with self.lock:
                         self.outcomes[source.key] = outcome
 
-    def refresh_if_due(self, db, source, manual=False):
+    def refresh_if_due(self, db, source, charged_days=None):
         now = int(self.clock())
         control = store.control(db, source.provider)
         previous = store.state(db, source.key)
@@ -163,11 +180,19 @@ class Collector:
         if previous and previous["next_due"] > now:
             if previous["error"]:
                 return "backoff"
-            # SWOB retains its conservative hourly cadence. A recent scheduled
-            # Open-Meteo check also counts toward the minimum request spacing.
-            spacing = source.interval if source.provider == "eccc" else MANUAL_COOLDOWN
-            if not manual or now < previous["checked"] + spacing:
+            # Manual checks may advance a healthy forecast or road still without
+            # shortening the SWOB cadence or DriveBC's 15-minute minimum.
+            spacing = {"open-meteo": MANUAL_COOLDOWN, "drivebc": cameras.MANUAL_SPACING}
+            if (charged_days is None or source.provider not in spacing
+                    or now < previous["checked"] + spacing[source.provider]):
                 return "recently_checked"
+            if source.provider == "open-meteo":
+                day = now // DAY
+                if day not in charged_days:
+                    # Reserve before the request, including failed upstream attempts.
+                    if not store.charge_manual_weather(db, day, DAILY_WEATHER_REFRESHES):
+                        return "weather_budget_exhausted"
+                    charged_days.add(day)
         data = None
         error = None
         cooldown = None
@@ -175,12 +200,18 @@ class Collector:
         delay = source.interval
         start = datetime.fromtimestamp(now, timezone.utc)
         try:
-            data = sample(source, start, self.clock, self.fetch)
+            if source.kind == "camera":
+                payload = self.fetch(cameras.METADATA_URL)
+                data = cameras.update(payload, self.camera_frame, int(self.clock()), self.fetch_image)
+            else:
+                data = sample(source, start, self.clock, self.fetch)
             if data is None:
                 error = "no_data"
+        except cameras.InvalidCamera as exc:
+            error = str(exc)
         except FetchError as exc:
             error = exc.code
-            if exc.policy == "retry":
+            if exc.policy == "retry" and source.kind != "camera":
                 failures = min((previous["failures"] if previous else 0) + 1, 12)
                 delay = min(source.interval, 60 * (2 ** (failures - 1)))
             elif exc.policy == "stop":
@@ -190,6 +221,9 @@ class Collector:
                 cooldown = (False, resume)
         completed = int(self.clock())
         store.save(db, source, completed, data, error, failures, completed + delay, cooldown)
+        if source.kind == "camera" and error is None:
+            with self.lock:
+                self.camera_frame = data
         if error:
             logging.warning("%s refresh: %s", source.key, error)
         return "failed" if error else "updated"
