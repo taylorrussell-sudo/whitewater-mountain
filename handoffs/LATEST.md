@@ -1,3 +1,3 @@
 # Latest handoff
 
-[Private household deployment architecture](2026-11-26_1330_private-deployment-architecture.md)
+[v0.3.0 private dashboard source validation and proof of concept](2026-11-26_1350_v0-3-0-data-validation.md)
