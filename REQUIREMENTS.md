@@ -1,10 +1,12 @@
 # Mountain Dashboard requirements
 
-Status: agreed design direction, implementation coverage varies. Baseline v0.1.1 is simulated only.
+Status: agreed design direction, implementation coverage varies. The v0.2 proposal is simulated only.
 
 ## Core winter experience
 - Whitewater-centric overview with five internal tabs: Overview, Powder, Webcams, Avalanche, Info. Main wall application eventually includes Mountain alongside Calendar, Home, Music and Lists.
 - Schematic elevation profile from Nelson through Apex/Nordic, Glory base, Day Lodge, individual chair tops, snow plot and Ymir Peak. Elevations provisional until verified; distinguish freezing level from falling snow transition and actual snow cover. Show changing freezing level and elevation-specific forecasts.
+- Show temperature by elevation for comparable Nelson valley and Whitewater Lodge pairs. Keep simulated observed and forecast indicators separate, show their signed lodge-minus-valley difference and valid times, and label missing or mismatched pairs unavailable. Interpret ≤0°C as no positive inversion signal, >0°C to <3°C as weak, 3°C to <6°C as notable, and ≥6°C as strong. These are provisional dashboard thresholds.
+- Highlight a positive observed signal with a schematic cold-air layer of unspecified depth. Where consecutive comparable forecast samples bracket a transition, show illustrative onset or dissipation. Show a duration range only when both transitions bracket the same run. Keep inversion independent of freezing level, powder, and avalanche indicators.
 - Show reported overnight/24h/48h/3-day/7-day/season snowfall and snowpack where available; lodge/summit temperature and wind; seven-day forecasts and cumulative predicted snow next 24/48/72h. Preserve observation site and time.
 - Separate actual and predicted powder alerts, icy-blue solid vs violet dashed visual language. Use a static accent at 5 cm, a soft glow at 10 cm, and an increasingly visible slow pulse from 15 cm. Keep the glow static when reduced motion is enabled. Configurable thresholds remain planned. Proposed 24h tiers: below 5 cm normal, 5–<10 fresh, 10–<15 watch, 15–<25 powder, 25–<40 major, 40+ exceptional. Forecast uses maximum rolling 24h snowfall within the next 72h, not a multi-day total. Display expected timing and confidence when supported.
 - Powder quality is qualitative and experimental; use temperature, wind, snowfall timing, freezing level and previous weather only when grounded. Never imply avalanche safety.

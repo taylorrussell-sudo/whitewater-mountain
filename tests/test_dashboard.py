@@ -16,6 +16,7 @@ SCENARIOS = {
     "normal": (2, [1, 3, 0, 2, 0, 1, 2], 24, 1200, [2, 2, 1]),
     "warm": (0, [0, 0, 0, 3, 7, 2, 1], 0, 2350, [3, 3, 2]),
     "exceptional": (48, [30, 28, 14, 5, 1, 0, 2], 0, 550, [4, 4, 3]),
+    "inversion": (1, [0, 1, 0, 0, 1, 0, 2], 24, 500, [2, 2, 1]),
 }
 TABS = ("overview", "powder", "webcams", "avalanche", "info")
 CAMERAS = {
@@ -86,9 +87,10 @@ class DashboardTest(TestCase):
                 self.tab("overview")
                 self.page.locator("#scenario").select_option(scenario)
                 expect(self.page.locator("#powdercards .powder strong").first).to_have_text(f"{reported} cm")
-                expect(self.page.locator("#profile svg")).to_have_attribute(
-                    "aria-label", f"Schematic mountain elevations and freezing level {freeze} metres"
-                )
+                profile_label = f"Schematic mountain elevations and freezing level {freeze} metres"
+                if scenario == "inversion":
+                    profile_label += ", with a schematic cold valley air layer"
+                expect(self.page.locator("#profile svg")).to_have_attribute("aria-label", profile_label)
                 peak = max(snow[:3])
                 expect(self.page.locator("#powdersummary")).to_contain_text(
                     f"Peak forecast: {peak} cm from +{start}h to +{start + 24}h."
@@ -96,6 +98,7 @@ class DashboardTest(TestCase):
                 self.assertTrue(self.page.locator("#overview .card").evaluate_all(
                     "(cards) => cards.every(card => card.getBoundingClientRect().bottom <= innerHeight)"
                 ))
+                self.assertTrue(self.page.evaluate("document.documentElement.scrollHeight <= innerHeight"))
                 self.page.get_by_role("button", name="Explore powder outlook →").press("Enter")
                 expect(self.page.locator("#powder")).to_be_visible()
                 expect(self.page.locator("#totals strong")).to_have_text(
@@ -113,6 +116,126 @@ class DashboardTest(TestCase):
                         [f"{n} · {ratings[n]}" for n in danger]
                     )
                     expect(self.page.locator(f"#{where} .warn")).to_contain_text("Simulated ratings only.")
+
+    def test_inversion_overview_states_and_theme(self):
+        self.page.locator("#scenario").select_option("normal")
+        observed = self.page.locator(".inversion-indicator.observed")
+        forecast = self.page.locator(".inversion-indicator.forecast")
+        timing = self.page.locator("#inversion-timing")
+        key = self.page.locator("#cold-air-key")
+        band = self.page.locator("#profile .cold-air-layer")
+        expect(observed).to_contain_text("Observed · simulated")
+        expect(observed).to_contain_text("-5°C · No positive inversion signal")
+        expect(forecast).to_contain_text("Forecast · simulated")
+        expect(forecast).to_contain_text("Unavailable")
+        expect(band).to_have_count(0)
+        expect(timing).to_be_hidden()
+
+        self.page.locator("#scenario").select_option("inversion")
+        expect(observed).to_contain_text("+8°C · Strong")
+        expect(observed).to_contain_text("Valley -10°C · Lodge -2°C")
+        expect(forecast).to_contain_text("+9°C · Strong")
+        expect(forecast).to_contain_text("Valley -11°C · Lodge -2°C")
+        expect(forecast).to_contain_text("Peak difference · +6h")
+        expect(timing).to_have_text(
+            "Illustrative timing · Onset +0h to +3h · Duration 6–12h · Dissipation +9h to +12h"
+        )
+        expect(key).to_have_text("Cold valley air · schematic")
+        expect(key).to_be_visible()
+        expect(self.page.locator("#temperature-plot svg")).to_have_accessible_name(
+            "Temperature by elevation at Whitewater Lodge and Nelson valley. "
+            "Circles show observations and diamonds show forecasts. Exact temperatures follow."
+        )
+        expect(self.page.locator("#temperature-plot .observed-point")).to_have_count(2)
+        expect(self.page.locator("#temperature-plot .forecast-point")).to_have_count(2)
+        freeze = self.page.locator("#profile .freeze")
+        expect(freeze).to_have_count(1)
+        self.page.emulate_media(reduced_motion="reduce")
+        for theme in ("dark", "light"):
+            self.page.locator("#theme").select_option(theme)
+            expect(band).to_be_visible()
+            expect(band).to_have_css("animation-name", "none")
+            expect(observed).to_have_css("animation-name", "none")
+            expect(forecast).to_have_css("border-left-style", "dashed")
+            self.assertNotEqual(band.evaluate("el => getComputedStyle(el).fill"),
+                                freeze.evaluate("el => getComputedStyle(el).stroke"))
+
+        self.page.locator("#scenario").select_option("normal")
+        expect(band).to_have_count(0)
+        expect(key).to_be_hidden()
+        expect(timing).to_be_hidden()
+        expect(self.page.locator("#temperature-plot .forecast-point")).to_have_count(0)
+        self.tab("info")
+        expect(self.page.locator("#info")).to_contain_text("These provisional thresholds")
+        expect(self.page.locator("#info")).to_contain_text("0°C or less")
+        expect(self.page.locator("#info")).to_contain_text("3°C to below 6°C")
+        expect(self.page.locator("#info")).to_contain_text("6°C or greater")
+
+    def test_inversion_thresholds_and_comparable_pairs(self):
+        cases = [
+            (-1, "No positive inversion signal"), (0, "No positive inversion signal"),
+            (0.01, "Weak"), (2.99, "Weak"), (3, "Notable"), (5.99, "Notable"),
+            (6, "Strong"), (8, "Strong"),
+        ]
+        self.assertEqual(self.page.evaluate(
+            """values => values.map(delta => {
+                const pair = comparableTemperatures(stationSamples('observed', 0, 0, delta), 'observed');
+                return inversionSignal(pair.delta);
+            })""", [delta for delta, _ in cases]
+        ), [label for _, label in cases])
+        self.assertEqual(self.page.evaluate("""() => {
+            const observed = stationSamples('observed', 0, -4, 0);
+            return [
+                comparableTemperatures(observed, 'observed'),
+                comparableTemperatures(observed, 'forecast'),
+                comparableTemperatures({...observed, lodge:{...observed.lodge, kind:'forecast'}}, 'observed'),
+                comparableTemperatures({...observed, lodge:{...observed.lodge, hour:3}}, 'observed'),
+                comparableTemperatures({...observed, lodge:{...observed.lodge, temp:null}}, 'observed'),
+                comparableTemperatures({...observed, lodge:{...observed.lodge, temp:NaN}}, 'observed'),
+                comparableTemperatures({valley:observed.valley}, 'observed'),
+                comparableTemperatures(undefined, 'observed'),
+            ];
+        }"""), [{"hour": 0, "valley": -4, "lodge": 0, "delta": 4}] + [None] * 7)
+
+    def test_forecast_timing_uses_adjacent_comparable_samples(self):
+        examples = [
+            ([(0, -1), (3, 3), (6, 6), (9, 6), (12, 0)], [6, [0, 3], [9, 12], [6, 12]]),
+            ([(0, 0), (3, 3), (6, 0)], [3, [0, 3], [3, 6], [0, 6]]),
+            ([(0, -1), (6, 6), (9, -1)], [6, None, [6, 9], None]),
+            ([(0, -1), None, (6, 6), (9, -1)], [6, None, [6, 9], None]),
+            ([(0, -1), (3, 6), None, (9, -1)], [3, [0, 3], None, None]),
+            ([(0, 6), (3, 5)], [0, None, None, None]),
+            ([(0, -1), (3, 0)], [3, None, None, None]),
+            ([None], [None, None, None, None]),
+            ([(0, 0), (3, 3), (6, 0), (9, 9), (12, 0)], [9, [6, 9], [9, 12], [0, 6]]),
+        ]
+        for samples, expected in examples:
+            with self.subTest(samples=samples):
+                self.assertEqual(self.page.evaluate(
+                    """samples => {
+                        const {pair, onset, dissipation, duration} = forecastInversion(samples.map(
+                            sample => sample && stationSamples('forecast', sample[0], 0, sample[1])
+                        ));
+                        return [pair?.hour, onset, dissipation, duration];
+                    }""", samples), expected)
+
+    def test_forecast_signal_is_independent_of_observations_and_other_indicators(self):
+        self.page.locator("#scenario").select_option("inversion")
+        unrelated = ("#powdercards", "#dangerOverview", "#profile .freeze")
+        before = [self.page.locator(selector).evaluate("el => el.outerHTML") for selector in unrelated]
+        self.page.evaluate("""() => {
+            sc.inversion.valley = undefined;
+            sc.inversion.temperatureForecast[0].lodge.hour = 1;
+            render();
+        }""")
+        expect(self.page.locator(".inversion-indicator.observed")).to_contain_text("Unavailable")
+        expect(self.page.locator(".inversion-indicator.forecast")).to_contain_text("+9°C · Strong")
+        expect(self.page.locator("#profile .cold-air-layer")).to_have_count(0)
+        expect(self.page.locator("#inversion-timing")).to_contain_text(
+            "Onset unavailable · Duration unavailable · Dissipation +9h to +12h"
+        )
+        after = [self.page.locator(selector).evaluate("el => el.outerHTML") for selector in unrelated]
+        self.assertEqual(before, after)
 
     def test_peak_window_includes_last_start_and_breaks_ties_early(self):
         for snow, expected in [
@@ -147,14 +270,16 @@ class DashboardTest(TestCase):
 
     def test_responsive_layout(self):
         self.page.add_style_tag(content="html { scrollbar-gutter: stable }")
-        for width in (320, 390, 420, 421, 640, 641, 768, 1024):
+        self.page.locator("#scenario").select_option("inversion")
+        for width in (320, 390, 420, 421, 640, 641, 768, 850, 851, 1024):
             self.page.set_viewport_size({"width": width, "height": 800})
             for tab in TABS:
                 with self.subTest(width=width, tab=tab):
                     self.tab(tab)
                     clipped = self.page.evaluate("""() => {
                         const elements = document.querySelectorAll(
-                            'html, .section.active :is(.card, .danger, .forecastdays, .powder, .orb, .metric)'
+                            'html, .section.active :is(.card, .danger, .forecastdays, .powder, .orb, .metric, ' +
+                            '.inversion-panel, .inversion-indicator)'
                         );
                         return [...elements]
                             .filter(el => el.scrollWidth > el.clientWidth + 1)
