@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0 (proposed) — 2026-11-26
+
+- Document Whitewater report and station evidence, access restrictions, regional alternatives, Open-Meteo forecast semantics and the ECCC Nelson CS candidate.
+- Add an isolated Python/SQLite prototype with synthetic source contracts, rolling snowfall calculations, freshness and failure handling, history and checked SQLite snapshots. Add manual open-data diagnostics and reproducible tests. Live API response checks remain pending.
+
 ## Architecture decision — 2026-11-26
 - Approved single private household deployment on the Raspberry Pi. Existing public simulation is temporary design feedback; no second live environment. Prioritize source validation including Whitewater numerical observations, then local service/cache and private deployment. No code or infrastructure changes in this decision.
 
