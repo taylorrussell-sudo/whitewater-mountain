@@ -1,6 +1,6 @@
 # Data sources and validation status
 
-v0.1 has no live data feeds. All numbers and webcam artwork are simulated/schematic. Candidate sources from planning (not approved or proven for automated redistribution):
+v0.1.1 has no live data feeds. All numbers and webcam artwork are simulated/schematic. Candidate sources from planning (not approved or proven for automated redistribution):
 
 | Source | Candidate data | Status |
 |---|---|---|
