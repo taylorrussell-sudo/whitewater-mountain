@@ -1,4 +1,4 @@
-# Whitewater Mountain Conditions — v0.2 prototype
+# Whitewater Mountain Conditions — v0.2.1 prototype
 
 Self-contained static HTML/CSS/JavaScript. All numerical data is simulated. Camera artwork is schematic, not actual webcam imagery. This is an independent family design prototype, not an official resort or avalanche forecast. No live APIs, tracking, credentials or home network access.
 
@@ -40,3 +40,5 @@ Six selectable scenarios. simulated daily snow totals are distributed uniformly 
 Choose **Valley temperature inversion** in Overview to see the schematic cold-air layer and compare simulated temperatures at Nelson valley (~535 m) and Whitewater Lodge (~1,630 m). The observed indicator compares the scenario-start pair. The forecast indicator uses the largest comparable lodge-minus-valley difference and shows its valid hour. Forecast onset and dissipation are bracketed by consecutive comparable samples three hours apart. A duration range is available when both transitions bound the same positive run.
 
 Info explains the provisional dashboard thresholds. Two station readings indicate a temperature contrast and cannot establish the vertical profile or any layer boundaries. The inversion graphics use their own station comparison, independent of the freezing level, powder alerts, and avalanche ratings.
+
+The inversion ski-context panel adds conditional temperature implications, separates observations and forecast peaks, and displays a simulated valley-fog / clear-lodge contrast only with matching sky data. No sky, snow-quality, or safety inference is made from temperature difference alone. Dissipation brackets describe the end of the positive station difference, not a guarantee of cloud clearance.

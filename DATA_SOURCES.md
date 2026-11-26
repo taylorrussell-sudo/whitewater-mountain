@@ -1,6 +1,6 @@
 # Data sources and validation status
 
-The v0.2 prototype uses simulated data only. All numbers and webcam artwork are simulated/schematic. Candidate sources from planning (not approved or proven for automated redistribution):
+The v0.2.1 prototype uses simulated data only. All numbers and webcam artwork are simulated/schematic. Candidate sources from planning (not approved or proven for automated redistribution):
 
 | Source | Candidate data | Status |
 |---|---|---|
@@ -22,3 +22,5 @@ See README for simulation math. Preserve source timestamps and model issue times
 Every scenario includes a mock Nelson valley temperature paired with the existing simulated lodge value at scenario start. The inversion scenario also has paired mock forecast temperatures at +0, +3, +6, +9, and +12 hours. The other scenarios currently provide upper-mountain outlooks without a comparable valley forecast. The inversion comparison keeps observations and forecast samples separate and treats missing, invalid, or time-mismatched pairs as unavailable.
 
 The source elevations are provisional. A future implementation needs station and model provenance, comparable valid times, freshness checks, and validated elevations. The layer artwork is illustrative. Neither the sample values nor the forecast 0°C level establishes the shape or depth of a cold-air layer.
+
+The inversion scenario has one mock sky comparison (observed at scenario start: Nelson fog, lodge clear). The skiing context uses this only if its type and valid hour match the temperature pair. No forecast sky samples are supplied. Future sky/visibility, wind, precipitation and snow-surface inputs require separate validated sources and timestamps; an inversion alone cannot establish sunshine or snow quality.
