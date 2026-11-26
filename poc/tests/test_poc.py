@@ -72,6 +72,29 @@ class SourceTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 normalize_forecast(fixture, LODGE)
 
+    def test_forecast_accepts_undefined_unit_only_for_null_freezing_levels(self):
+        fixture = forecast_fixture()
+        field = "freezing_level_height"
+        fixture["hourly_units"][field] = "undefined"
+        fixture["hourly"][field] = [None] * 169
+        model = "ecmwf_ifs"
+        params = parse_qs(urlparse(forecast_url(LODGE, model)).query)
+        self.assertEqual(params["models"], [model])
+        parsed = normalize_forecast(fixture, LODGE, model)
+        self.assertEqual(parsed["model"], model)
+        self.assertEqual(parsed["units"][field], "m")
+        self.assertEqual(parsed["values"][field], [None] * 169)
+        self.assertIsNotNone(snowfall_windows(parsed, NOW)["max_rolling_24h"])
+
+        fixture["hourly"][field][0] = 1200
+        with self.assertRaisesRegex(ValueError, field):
+            normalize_forecast(fixture, LODGE, model)
+        fixture["hourly_units"][field] = "m"
+        fixture["hourly_units"]["snowfall"] = "undefined"
+        fixture["hourly"]["snowfall"] = [None] * 169
+        with self.assertRaisesRegex(ValueError, "snowfall"):
+            normalize_forecast(fixture, LODGE, model)
+
     def test_forecast_uses_end_of_hour_and_last_rolling_start(self):
         fixture = forecast_fixture()
         fixture["hourly"]["snowfall"] = [500] + [0] * 48 + [1] * 24 + [100] * 96
@@ -119,6 +142,21 @@ class SourceTests(unittest.TestCase):
         fixture["features"][0]["geometry"]["coordinates"].append(1600)
         with self.assertRaisesRegex(ValueError, "elevation"):
             normalize_valley(fixture)
+
+    def test_eccc_keeps_products_with_same_valid_time_and_orders_by_processing_time(self):
+        fixture = valley_fixture()
+        hourly = fixture["features"][0]
+        hourly["id"] = "synthetic-hourly"
+        hourly["properties"]["processed_date_tm"] = "2026-01-15T17:00:25.125Z"
+        minute = {**hourly, "id": "synthetic-minute", "properties": {
+            **hourly["properties"], "obs_date_tm": "2026-01-15T09:00:00-08:00",
+            "processed_date_tm": "2026-01-15T17:00:25Z",
+        }}
+        fixture["features"].append(minute)
+        readings = normalize_valley(fixture)["readings"]
+        self.assertEqual([row["source_id"] for row in readings],
+                         ["synthetic-minute", "synthetic-hourly"])
+        self.assertEqual(readings[0]["valid_at"], readings[1]["valid_at"])
 
 
 class TransportTests(unittest.TestCase):

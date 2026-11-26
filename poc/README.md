@@ -21,7 +21,9 @@ python3 -B -m poc probe forecast-valley
 python3 -B -m poc probe eccc
 ```
 
-Check forecast centres and target elevations against the request, confirm 169 consecutive UTC hours, inspect null counts and 72-hour snow-window coverage, and compare the two points' valid times before deriving a forecast inversion. For ECCC, check the station and returned metadata, provider notice, latest valid time and lag. Repeat ad hoc at different times to establish actual update cadence. The live checks are still pending after managed-workspace proxy denials. There is no Whitewater probe. See [provider evidence, permissions and exact endpoints](../DATA_SOURCES.md).
+The forecast commands default to GEM Global. Add `--model ecmwf_ifs` for the IFS 9 km outlook or `--model gem_hrdps_continental` for the operational 2.5 km Canadian forecast. Use `python3 -B -m poc probe --help` for the complete list.
+
+All three default commands passed on 2026-11-26. GEM Global returned 169 consecutive matching UTC hours, complete 72-hour snowfall windows and no freezing-level values. Check the returned grid centres and adjustment elevations, field coverage and aligned forecast times whenever comparing points. Short-range models can return 169 timestamp slots with many missing values near the end. For ECCC, check the station and provider metadata, observation age and distinct valid times. Hourly and minute products can share one valid time. The summary uses the newest processing time to break a tie, while the normalizer preserves both feature IDs. These diagnostics make requests only to Open-Meteo and ECCC. [Provider evidence, permissions and recommended sources](../DATA_SOURCES.md)
 
 ## Architecture assessment
 
