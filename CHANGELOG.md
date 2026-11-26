@@ -1,6 +1,9 @@
 # Changelog
 
-## v0.2.1 (proposed) — 2026-11-26
+## Architecture decision — 2026-11-26
+- Approved single private household deployment on the Raspberry Pi. Existing public simulation is temporary design feedback; no second live environment. Prioritize source validation including Whitewater numerical observations, then local service/cache and private deployment. No code or infrastructure changes in this decision.
+
+## v0.2.1 (merged and published) — 2026-11-26
 - Add compact simulated skiing implications for observed and forecast inversion signals, including temperature-dependent softening potential and evidence-gated sky contrast.
 - Clarify forecast breakdown and atmospheric-profile limitations in Info. Verify the 1920×1080 overview without scrolling and extend mobile and sky-comparison regression coverage.
 

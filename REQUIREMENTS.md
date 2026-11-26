@@ -1,6 +1,6 @@
 # Mountain Dashboard requirements
 
-Status: agreed design direction, implementation coverage varies. The v0.2.1 proposal is simulated only.
+Status: agreed design direction, implementation coverage varies. The published v0.2.1 prototype is simulated only; private live deployment is the approved direction.
 
 ## Core winter experience
 - Whitewater-centric overview with five internal tabs: Overview, Powder, Webcams, Avalanche, Info. Main wall application eventually includes Mountain alongside Calendar, Home, Music and Lists.
@@ -14,4 +14,4 @@ Status: agreed design direction, implementation coverage varies. The v0.2.1 prop
 - Selectable webcam gallery with visible keyboard focus retained on selection and camera controls at least 44×44 CSS px. Add source attribution and timestamps when approved. Show three elevation bands with numeric and text ratings plus distinct severity accents. Add the official region and bulletin expiry when validated and retain the official link; stale/missing = unavailable, not low. Nordic grooming and access road conditions when validated.
 - Info explains thresholds, data provenance, forecast vs observed vs calculated, uncertainty, limitations, and interactions. Update explanations with logic changes.
 - Responsive phone layouts down to 320 CSS px and a 1920×1080 wall layout; no scrolling for essential desktop overview, touch-sized controls, clean muted design, light/dark/auto, accessible motion.
-- Family review on standalone public GitHub Pages, independent from home network. No private data. No paid services anticipated. Live backend architecture and production integration require separate approval.
+- One application/codebase and one private household live deployment. The existing public simulated Pages site is temporary feedback only; retire it after verifying private hosting and before any public live-data access. GitHub/Codex fixture-based development is not a second deployment. Local service collects authorized data, caches with provenance/freshness, and stores permitted history; family access by LAN or separately approved private authenticated network. No public Pi exposure or paid services. Validate source terms, privacy, resource impact, rollback and backup coverage before production; exact implementation and access changes require separate approval.
