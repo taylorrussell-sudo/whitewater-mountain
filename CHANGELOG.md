@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.1 (proposed) — 2026-11-26
+
+- Add the private Python and SQLite collector and loopback API with ECMWF IFS HRES 9 km, separately labelled HRDPS Continental 2.5 km, and measured ECCC Nelson CS temperatures.
+- Add a derived NOAA GFS pressure-profile product that preserves multiple bracketed freezing levels. Validate provider responses and keep Whitewater and Southridge collection disabled.
+- Add persistent scheduling and provider cooldowns, bounded cache history, checked online backup and restore, and service regressions.
+
 ## v0.3.0 live source validation (proposed) — 2026-11-26
 
 - Verify live lodge and valley forecasts and Nelson CS temperatures. Accept the observed all-null freezing-level response while retaining strict units and shape checks. Report separate valid-time counts for overlapping Nelson SWOB products.

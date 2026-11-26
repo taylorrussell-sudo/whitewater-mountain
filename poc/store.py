@@ -101,7 +101,7 @@ def read_cache(db, source, now):
     return result
 
 
-def backup(source, destination):
+def backup(source, destination, validate=None):
     """Publish a checked standalone snapshot without overwriting an existing backup."""
     source = Path(source)
     destination = Path(destination)
@@ -117,6 +117,15 @@ def backup(source, destination):
             if (dst.execute("PRAGMA integrity_check").fetchall() != [("ok",)]
                     or dst.execute("PRAGMA foreign_key_check").fetchall()):
                 raise ValueError("Snapshot integrity checks failed")
+            if validate is not None:
+                validate(dst)
+        staged.chmod(0o600)
         with staged.open("rb") as file:
             os.fsync(file.fileno())
         os.link(staged, destination)
+        if hasattr(os, "O_DIRECTORY"):
+            parent_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(parent_fd)
+            finally:
+                os.close(parent_fd)
