@@ -4,7 +4,7 @@
 2026-11-26T12:43:03-07:00 (America/Vancouver). User approved adding conditional skiing implications and clearer interpretation of forecast inversion breakdown. Implemented in ChatGPT with direct GitHub access, not Codex.
 
 ## Repository / branch / PR / commit
-taylorrussell-sudo/whitewater-mountain, branch feature/v0.2.1-inversion-interpretation, implementation commit 121a476850d080379cb6b5c5ac451a785fc7a892. [Branch comparison](https://github.com/taylorrussell-sudo/whitewater-mountain/compare/main...feature/v0.2.1-inversion-interpretation). Pull request to be opened after this report is committed.
+taylorrussell-sudo/whitewater-mountain, branch feature/v0.2.1-inversion-interpretation, implementation commit 121a476850d080379cb6b5c5ac451a785fc7a892. [Branch comparison](https://github.com/taylorrussell-sudo/whitewater-mountain/compare/main...feature/v0.2.1-inversion-interpretation). [Draft pull request #4](https://github.com/taylorrussell-sudo/whitewater-mountain/pull/4).
 
 ## Version and status
 Proposed v0.2.1. Existing v0.2 remains published; no merge or deployment authorized yet.
