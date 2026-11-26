@@ -1,6 +1,6 @@
-# Private mountain weather service v0.3.1
+# Private mountain weather service v0.3.2
 
-The service requires Python 3.10+ on Linux and uses Python's standard library and SQLite. It listens on IPv4 loopback. The static dashboard keeps its existing simulated data. This service is the backend for a subsequent private dashboard integration.
+The service requires Python 3.10+ on Linux and uses Python's standard library and SQLite. It listens on IPv4 loopback. Open the service URL for the private dashboard. Opening the repository’s static index directly runs the standalone simulation.
 
 ## Run in development
 
@@ -11,7 +11,7 @@ state_dir=$(mktemp -d)
 python -B -m mountain_service serve --db "$state_dir/mountain.sqlite"
 ```
 
-The default URL is `http://127.0.0.1:8765`. Use `--port 0` for an ephemeral port. The service logs the selected port and any sanitized refresh failures. The process holds an exclusive lock for its database. SIGTERM and Ctrl-C stop the listener and allow the collector to finish its current request.
+The default URL is `http://127.0.0.1:8765`. Use `--port 0` for an ephemeral port. The service logs the selected port and sanitized refresh failures. The process holds an exclusive lock for its database. SIGTERM and Ctrl-C stop the listener and allow the collector to finish its current request.
 
 For a one-shot check from an authorized development environment, use `python -B -m mountain_service probe ifs` and repeat for `hrdps`, `nelson_cs`, and `freezing_profile`. The command reports coverage and response metadata without printing readings or saving a cache. Use the synthetic regression suite for recurring development checks. Enable specific sources with repeated `--collect SOURCE` flags only for authorized private operation. Whitewater, Southridge and regional snow sources have no collection routes. [Source validation and permissions](../DATA_SOURCES.md)
 
@@ -26,10 +26,16 @@ Forecast polls each use a single two-point request. With all products enabled, t
 
 ## Local API v1
 
-All routes are GET and return JSON with `Cache-Control: no-store`. Requests must address `127.0.0.1` or `localhost` at the bound port. The API permits its own HTTP origin and sends no CORS headers. Frontend integration can use a separately reviewed same-origin private route.
+Requests must address `127.0.0.1` or `localhost` at the bound port. Dashboard assets and JSON use `Cache-Control: no-store`. The service serves only the dashboard, its live script and the documented endpoints. The dashboard reads same-origin cached data on a timer. Network access beyond loopback requires separate architecture and access approval.
+
+- **`GET /`** serves the live dashboard using the same HTML as the static simulation. The service marks the page as private and includes the live script.
+- **`GET /v1/refresh`** returns the current manual batch’s phase, per-source outcomes and remaining cooldown seconds. Phases are `idle`, `queued`, `running`, `complete`, and `failed` (interrupted batch). A completed batch can contain individual failures or skips.
+- **`POST /v1/refresh`** requires an exact same-origin HTTP `Origin` matching the local `Host`, the `X-Mountain-Refresh: 1` header and an empty body with no transfer encoding. The service sends no CORS headers. A valid request returns 202 and queues a batch on the single scheduled worker. A concurrent manual request or disabled collection returns 409. The 60-second server-wide request cooldown returns 429 with `Retry-After`. An unavailable collector returns 503.
+
+The scheduler checks every enabled source in order. It can advance a healthy Open-Meteo source’s due time, with at least 60 seconds between completed checks for that source. Nelson keeps its one-hour minimum. Existing per-source retry due times, provider Retry-After and provider blocks take precedence. The next automatic check remains based on the most recent attempt and its normal interval or backoff. The request cooldown and batch progress live in the running process. Persistent checked times and provider state continue to protect upstream cadence across restarts. During refresh and recoverable failures, SQLite keeps the last successful snapshot and its original valid times.
 
 - **`/healthz`** returns 200 if SQLite is readable and the collector loop is healthy. Database or collector faults return 503. Check per-source state in the weather response for upstream health.
-- **`/v1/weather`** returns `api_version`, UTC `as_of` and a `sources` object keyed by the table above plus `whitewater` and `southridge`. Each entry has a label, kind, status and nullable data. Enabled sources also expose `checked_at`, `last_success_at`, `next_attempt_at`, `last_error`, `provider_state`, `age_seconds` and `age_basis`. Use each entry's `credit`, `link`, and `licence` when displaying data, including any provider notice carried by the observation. Disabled sources carry a reason. `unavailable` means there are no usable cached data for the relevant time. `fresh` and `stale` describe cached data. They can coexist with a recent refresh error. Make stale status visible and keep stale data out of live indicators.
+- **`/v1/weather`** returns `api_version`, UTC `as_of` and a `sources` object keyed by the table above plus `whitewater` and `southridge`. Each entry has a label, kind, status and nullable data. Enabled sources also expose `checked_at`, `last_success_at`, `next_attempt_at`, `last_error`, `provider_state`, `age_seconds` and `age_basis`. Use each entry's `credit`, `link`, and `licence` when displaying data, including any provider notice carried by the observation. Disabled sources carry a reason. `unavailable` means there are no usable cached data for the relevant time. `fresh` and `stale` describe cached data. They can coexist with a recent refresh error. The dashboard labels stale sources and excludes their values from live indicators.
 - **`/v1/observations/nelson`** returns up to 288 retained readings in reverse valid-time order, breaking ties by most recent processing time. The response includes the station metadata and retention window. The same ordering determines the latest measurement in `/v1/weather`. This endpoint represents an intermittent recent cache and may have time gaps.
 
 ### Reading the data
@@ -59,4 +65,4 @@ python -B -m unittest discover -s poc/tests -v
 CHROMIUM_PATH=/usr/bin/chromium python -B -m unittest discover -s tests -v
 ```
 
-The service suite sends synthetic data over loopback and uses temporary databases outside the repository. It covers malformed and missing data, forecast horizons, multiple crossings, transport and provider stops, stale cache, retention, transactions, restart and online backup/restore.
+The service and browser suites use synthetic data over loopback and uses temporary databases outside the repository. It covers malformed and missing data, forecast horizons, multiple crossings, transport and provider stops, stale cache, retention, transactions, restart and online backup/restore.

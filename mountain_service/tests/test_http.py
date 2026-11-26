@@ -41,10 +41,10 @@ class Upstream(BaseHTTPRequestHandler):
             pass
 
 
-def get(port, path, **headers):
+def get(port, path, method="GET", **headers):
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     try:
-        connection.request("GET", path, headers=headers)
+        connection.request(method, path, headers=headers)
         response = connection.getresponse()
         payload = json.loads(response.read())
         return response.status, response.getheaders(), payload
@@ -109,6 +109,38 @@ class HTTPTest(unittest.TestCase):
         self.path.rename(self.path.with_name("moved.sqlite"))
         with self.assertLogs(level="ERROR"):
             self.assertEqual(get(port, "/healthz")[0], 503)
+
+    def test_manual_refresh_validation_and_duplicate_requests(self):
+        store.prepare(self.path)
+        clock = 100
+        collector = Collector(self.path, (IFS,), monotonic=lambda: clock)
+        api = LocalAPI(0, self.path, {"ifs"}, threading.Event(), lambda: ANCHOR, collector)
+        port = self.run_server(api)
+        headers = {"Origin": f"http://127.0.0.1:{port}", "X-Mountain-Refresh": "1"}
+
+        def post(**changes):
+            return get(port, "/v1/refresh", method="POST", **{**headers, **changes})
+
+        self.assertEqual(get(port, "/v1/refresh")[2]["state"], "idle")
+        self.assertEqual(get(port, "/v1/refresh", method="POST")[0], 403)
+        self.assertEqual(post(Origin="null")[0], 403)
+        self.assertEqual(post(Origin=f"http://localhost:{port}")[0], 403)
+        self.assertEqual(post(Host="not-local.example")[0], 403)
+        self.assertEqual(post(**{"Content-Length": "1"})[0], 400)
+        self.assertEqual(post(**{"Transfer-Encoding": "chunked"})[0], 400)
+        self.assertEqual(post(**{"X-Mountain-Refresh": "0"})[0], 400)
+        self.assertEqual(get(port, "/v1/refresh")[2]["state"], "idle")
+        self.assertEqual(post()[0], 202)
+        self.assertEqual(post()[0], 409)
+        self.assertEqual(get(port, "/v1/refresh")[2]["outcomes"], {"ifs": "queued"})
+        with collector.lock:
+            collector.refresh_state = "complete"
+        clock += 59
+        status, response_headers, _ = post()
+        self.assertEqual(status, 429)
+        self.assertIn(("Retry-After", "1"), response_headers)
+        clock += 1
+        self.assertEqual(post()[0], 202)
 
     def test_transport_limits_retry_after_and_redirects(self):
         upstream = ThreadingHTTPServer(("127.0.0.1", 0), Upstream)

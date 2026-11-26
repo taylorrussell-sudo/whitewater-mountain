@@ -12,6 +12,12 @@ The v0.2.1 dashboard is simulated. The v0.3.0 proof of concept (PoC) uses synthe
 | [Southridge via Avalanche Canada](https://avalanche.ca/weather/stations/22) | Hourly provincial ridge observations verified via the public API. Recurring use is pending provider terms. |
 | [Whitewater webcams](https://whitewatermountainresort.com/webcams/), [Avalanche Canada](https://avalanche.ca/), [Nelson Nordic](https://nelsonnordicski.ca/conditions), [DriveBC](https://drivebc.ca/) | Deferred to v0.4. Verify display rights, source identity and timestamps. Expired or missing official avalanche information is unavailable. |
 
+## Private dashboard use in v0.3.2
+
+The IFS HRES 9 km forecast drives the lodge outlook and forecast powder windows. Canadian HRDPS Continental 2.5 km has its own short-range display and inversion comparison. Discrete 24-hour outlook blocks begin at the first complete hour. The chart, aggregation, inversion comparison and GFS crossing display adapt model data. The dashboard links provider credit and licence in the forecast panels and source details.
+
+Nelson CS is the only measured source enabled by this integration when configured. Whitewater and Southridge still require permission for recurring access. Manual refresh advances eligible forecast checks through the scheduler. GeoMet retains its hourly minimum, and provider restrictions and retry due times take precedence for every source. [Service guide](mountain_service/README.md)
+
 ## v0.3.1 service selections and live checks
 
 - IFS HRES 9 km (`ecmwf_ifs`) is the extended forecast. HRDPS Continental 2.5 km (`gem_hrdps_continental`) is separate short-range guidance. Each model uses one two-point query every three hours. On 2026-11-26 around 22:45 UTC the service probes validated 170 populated hourly slots per IFS metric and point and 45 per HRDPS metric and point. Wind, temperature and snowfall units matched the contract. Neither model substitutes for measured resort data. [ECMWF API](https://open-meteo.com/en/docs/ecmwf-api) · [GEM API](https://open-meteo.com/en/docs/gem-api)

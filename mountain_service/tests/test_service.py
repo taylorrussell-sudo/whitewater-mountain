@@ -116,6 +116,30 @@ class StoreTest(unittest.TestCase):
         with store.connect(self.path) as db:
             return weather(db, ("ifs", "nelson_cs", "hrdps", "freezing_profile"), self.now)["sources"]
 
+    def test_manual_refresh_respects_provider_cooldown_stop_and_source_backoff(self):
+        calls = []
+
+        def fetch(url):
+            calls.append(url)
+            raise FetchError("unexpected_schema", "interval")
+
+        collector = Collector(self.path, (IFS, HRDPS, NELSON_CS), lambda: self.now, fetch)
+        with store.connect(self.path, write=True) as db:
+            store.save(db, IFS, self.now, None, "http_429", 0, self.now + 180,
+                       (False, self.now + 300))
+            store.save(db, NELSON_CS, self.now, None, "http_403", 0, self.now + 3600,
+                       (True, None))
+            self.now += 120
+            self.assertEqual(collector.refresh_if_due(db, IFS, manual=True), "provider_cooldown")
+            self.assertEqual(collector.refresh_if_due(db, HRDPS, manual=True), "provider_cooldown")
+            self.assertEqual(collector.refresh_if_due(db, NELSON_CS, manual=True), "provider_blocked")
+            self.assertEqual(calls, [])
+            self.now += 180
+            self.assertEqual(collector.refresh_if_due(db, IFS, manual=True), "failed")
+            self.now += 60
+            self.assertEqual(collector.refresh_if_due(db, IFS, manual=True), "backoff")
+            self.assertEqual(len(calls), 1)
+
     def test_scheduler_restart_good_cache_and_source_failure(self):
         calls = []
         attempts = 0

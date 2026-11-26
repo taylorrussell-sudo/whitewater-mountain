@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.3.1 (proposed) — 2026-11-26
+## v0.3.2 (proposed) — 2026-11-26
+
+- Connect the existing dashboard to the loopback service for extended and short-range forecasts, measured Nelson CS temperature, forecast snow and inversions, and multiple derived GFS freezing levels.
+- Add validated same-origin manual refresh, per-source outcomes and a server-side cooldown. Keep automatic scheduling, source backoff and successful cache entries.
+- Preserve the static simulation and add integration regressions for layouts, stale data, partial failure and recovery.
+
+## v0.3.1 (merged) — 2026-11-26
 
 - Add the private Python and SQLite collector and loopback API with ECMWF IFS HRES 9 km, separately labelled HRDPS Continental 2.5 km, and measured ECCC Nelson CS temperatures.
 - Add a derived NOAA GFS pressure-profile product that preserves multiple bracketed freezing levels. Validate provider responses and keep Whitewater and Southridge collection disabled.

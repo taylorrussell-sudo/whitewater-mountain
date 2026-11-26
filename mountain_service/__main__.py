@@ -43,15 +43,16 @@ def serve(path, port, enabled):
     with service_lock(path):
         store.prepare(path)
         stop, failed = Event(), Event()
+        collector = Collector(path, [source for key, source in SOURCES.items() if key in enabled])
 
         def stop_service(signum, frame):
             stop.set()
+            collector.wake.set()
 
         for sig in (signal.SIGINT, signal.SIGTERM):
             signal.signal(sig, stop_service)
-        collector = Collector(path, [source for key, source in SOURCES.items() if key in enabled])
         worker = Thread(target=collector.run, args=(stop, failed), daemon=True)
-        with LocalAPI(port, path, enabled, failed, time.time) as api:
+        with LocalAPI(port, path, enabled, failed, time.time, collector=collector) as api:
             logging.info("Local API listening on http://127.0.0.1:%d", api.server_port)
             worker.start()
             try:
@@ -59,6 +60,7 @@ def serve(path, port, enabled):
                     api.handle_request()
             finally:
                 stop.set()
+                collector.wake.set()
                 worker.join(timeout=30)
 
 
