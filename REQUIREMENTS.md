@@ -1,6 +1,6 @@
 # Mountain Dashboard requirements
 
-Status — v0.3.2 adds the private dashboard integration for review. The public v0.2.1 prototype remains simulated.
+Status — v0.3.2.1 adds an eligible webcam still and daily weather refresh limit for review. The public v0.2.1 prototype remains simulated.
 
 ## Core winter experience
 - Whitewater-centric overview with five internal tabs: Overview, Powder, Webcams, Avalanche, Info. Main wall application eventually includes Mountain alongside Calendar, Home, Music and Lists.
@@ -25,3 +25,6 @@ Status — v0.3.2 adds the private dashboard integration for review. The public 
 - Display every resolved NOAA GFS 0 °C crossing and exact-zero altitude band, including separate representations for a sampled profile with no crossing and insufficient coverage. Derive forecast inversions from matching, same-model lodge and valley hours. Keep missing hours out of the inversion timing brackets.
 - Show source credit, licence, freshness, last checked, last successful check and available source valid times. Keep stale values out of active indicators and retain last successful cache entries on failed refreshes.
 - Send Refresh Data through the same private scheduler as automatic collection. Allow one manual batch at a time with a server-wide 60-second request cooldown and enforce provider request spacing, retry due times and stop periods. Show progress and per-source outcomes. Require a same-origin, validated POST on the loopback service.
+
+- Show the licensed DriveBC junction still in Overview and Webcams, with source update time, stale and unavailable states, official attribution and an accessible enlarged view. Preserve camera selection across refreshes, tab switches and reloads. Keep unapproved feeds link-only and preserve the static simulation.
+- Persist a six-batch daily UTC limit on early weather checks. Charge the batch before its first eligible early weather request. Keep due checks and eligible camera checks independent of this budget. Display the balance and skipped outcomes.

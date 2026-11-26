@@ -11,10 +11,11 @@ from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import expect, sync_playwright
 
-from mountain_service import store
+from mountain_service import cameras, store
 from mountain_service.api import LocalAPI
 from mountain_service.collect import Collector, FetchError
 from mountain_service.sources import SOURCES
+from mountain_service.tests.test_cameras import jpeg, metadata
 from mountain_service.tests.test_service import ANCHOR, forecast, profile
 from poc.synthetic import valley_fixture
 
@@ -38,11 +39,14 @@ class LiveDashboardTest(unittest.TestCase):
         self.ifs_error = None
         self.calls = []
         self.stale_nelson = False
-        collector = Collector(path, tuple(SOURCES.values()), lambda: self.now, self.fetch, lambda: self.now)
+        self.camera_frame_number = 0
+        self.camera_offline = False
+        collector = Collector(path, (*SOURCES.values(), cameras.DRIVEBC), lambda: self.now, self.fetch,
+                              lambda: self.now, self.fetch_image)
         collector.cycle()
         stop = Event()
         failed = Event()
-        api = LocalAPI(0, path, SOURCES, failed, lambda: self.now, collector)
+        api = LocalAPI(0, path, {*SOURCES, cameras.DRIVEBC.key}, failed, lambda: self.now, collector)
         self.origin = f"http://127.0.0.1:{api.server_port}"
         http = Thread(target=api.serve_forever, daemon=True)
         http.start()
@@ -72,7 +76,14 @@ class LiveDashboardTest(unittest.TestCase):
         self.assertEqual(self.errors, [])
         self.assertTrue(all(url.startswith(self.origin + "/") for url in self.requests))
 
+    def fetch_image(self, url):
+        self.assertEqual(url, cameras.IMAGE_URL)
+        self.camera_frame_number += 1
+        return jpeg(self.camera_frame_number)
+
     def fetch(self, url):
+        if url == cameras.METADATA_URL:
+            return metadata(self.now - 60, is_on=not self.camera_offline)
         model = parse_qs(urlsplit(url).query).get("models", ["nelson"])[0]
         self.calls.append(model)
         anchor = self.now // 3600 * 3600
@@ -133,6 +144,61 @@ class LiveDashboardTest(unittest.TestCase):
         expect(page.locator("#live-sources")).to_contain_text("Unavailable · collection disabled")
         page.locator("#theme").select_option("light")
         expect(page.locator("html")).to_have_attribute("data-theme", "light")
+
+    def test_camera_selection_enlarge_refresh_and_stale_still(self):
+        page = self.page
+        road = page.locator('#camchips button').last
+        image = page.locator('#camhero img')
+        expect(road).to_have_attribute("aria-pressed", "true")
+        expect(image).to_be_visible()
+        self.assertEqual(image.evaluate("node => node.naturalWidth"), 320)
+        original = image.get_attribute("src")
+        reply = page.request.get(self.origin + original)
+        self.assertEqual(reply.headers["content-type"], "image/jpeg")
+        self.assertEqual(reply.body(), jpeg(1))
+        self.assertIn("private", reply.headers["cache-control"])
+
+        lodge = page.locator('#camchips button').first
+        lodge.focus()
+        page.keyboard.press("Enter")
+        expect(lodge).to_be_focused()
+        expect(page.locator('#camhero')).to_contain_text("permission pending")
+        expect(image).to_have_count(0)
+        page.reload()
+        expect(lodge).to_have_attribute("aria-pressed", "true")
+        road.click()
+
+        enlarge = page.locator("#camhero [data-enlarge]")
+        enlarge.focus()
+        page.keyboard.press("Enter")
+        modal = page.get_by_role("dialog")
+        expect(modal.locator("img")).to_be_visible()
+        page.keyboard.press("Escape")
+        expect(modal).to_be_hidden()
+        expect(enlarge).to_be_focused()
+
+        page.locator('[data-tab="webcams"]').click()
+        expect(page.locator("#road-camera img")).to_be_visible()
+        expect(page.locator("#cameragrid img")).to_have_count(1)
+        expect(page.locator("#cameragrid")).to_contain_text("Weather Stick")
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.locator("#road-camera [data-enlarge]").click()
+        modal.get_by_role("button", name="Close").click()
+        expect(modal).to_be_hidden()
+        page.locator('[data-tab="overview"]').click()
+        expect(road).to_have_attribute("aria-pressed", "true")
+
+        self.now += cameras.MANUAL_SPACING
+        page.locator("#refresh-button").click()
+        expect(page.locator("#refresh-status")).to_contain_text("DriveBC check succeeded")
+        expect(image).not_to_have_attribute("src", original)
+        self.assertEqual(page.request.get(self.origin + original).status, 404)
+        expect(page.locator("#weather-budget")).to_contain_text("5/6 left")
+
+        self.camera_offline = True
+        self.now += cameras.DRIVEBC.fresh_for + 1
+        expect(page.locator("#camhero")).to_contain_text("Stale", timeout=20000)
+        expect(image).to_be_visible()
 
     def test_refresh_progress_partial_failure_staleness_and_recovery(self):
         page = self.page

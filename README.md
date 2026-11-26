@@ -1,4 +1,4 @@
-# Whitewater Mountain Conditions — v0.3.2
+# Whitewater Mountain Conditions — v0.3.2.1
 
 The private Python/SQLite service serves the existing dashboard with ECMWF IFS HRES, Canadian HRDPS, measured Nelson CS temperatures and derived NOAA GFS freezing levels. This independent household dashboard includes a static simulation for design review and regression testing.
 
@@ -11,11 +11,11 @@ state_dir=$(mktemp -d)
 python -B -m mountain_service serve --db "$state_dir/mountain.sqlite"
 ```
 
-Open `http://127.0.0.1:8765` for the private dashboard. Collection defaults to disabled. Use repeated `--collect` flags for explicitly authorized sources. The development [service guide](mountain_service/README.md) lists source keys, refresh behavior and cache operations. The dashboard displays unavailable measured resort fields while Whitewater permission is pending.
+Open `http://127.0.0.1:8765` for the private dashboard. Collection defaults to disabled. Use repeated `--collect` flags for explicitly authorized sources. The development [service guide](mountain_service/README.md) lists source keys, refresh behavior and cache operations. Add `--collect drivebc_whitewater` to enable the attributed Highway 6 junction still in Overview and Webcams. Resort images remain available through their official links. Refresh Data can advance up to six weather batches per UTC day and checks the camera when eligible. The status line shows the remaining weather budget.
 
 ## Automated regression checks
 
-Use Python 3.10+ and Chromium. The tests launch a loopback server on a free port and exercise the static simulation and the private dashboard with synthetic API-shaped weather. They cover all six scenarios and five tabs, snowfall and inversion calculations, keyboard camera selection, 44 px camera targets, severity styling, themes and reduced motion, and layouts from 320 CSS px up to the 1920×1080 wall view. The private tests also cover refresh progress, cooldown, partial failure, stale data and recovery.
+Use Python 3.10+ and Chromium. The tests launch a loopback server on a free port and exercise the static simulation and the private dashboard with synthetic API-shaped weather. They cover all six scenarios and five tabs, snowfall and inversion calculations, keyboard camera selection, 44 px camera targets, severity styling, themes and reduced motion, and layouts from 320 CSS px up to the 1920×1080 wall view. The private tests also cover refresh progress, cooldown, partial failure, stale data and recovery, plus webcam selection, enlarged viewing and image updates.
 
 ```sh
 python3 -m venv .venv

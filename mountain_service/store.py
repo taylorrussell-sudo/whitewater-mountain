@@ -14,7 +14,12 @@ from poc.store import backup as sqlite_backup
 APP_ID = 0x574D3033
 FORECAST_RETENTION = 7 * 86400
 OBSERVATION_RETENTION = 2 * 86400
-SCHEMA = """
+MANUAL_BUDGET_SCHEMA = """
+CREATE TABLE IF NOT EXISTS manual_weather_budget (
+    utc_day INTEGER PRIMARY KEY, batches INTEGER NOT NULL
+);
+"""
+SCHEMA = MANUAL_BUDGET_SCHEMA + """
 CREATE TABLE IF NOT EXISTS snapshots (
     id INTEGER PRIMARY KEY, source TEXT NOT NULL, fetched INTEGER NOT NULL, data TEXT NOT NULL
 );
@@ -66,6 +71,8 @@ def prepare(path):
             os.link(staged, path)
     with connect(path, write=True) as db:
         validate(db)
+        # Additive migration for existing weather caches and restored backups.
+        db.execute(MANUAL_BUDGET_SCHEMA)
         db.execute("PRAGMA journal_mode = WAL")
 
 
@@ -87,6 +94,23 @@ def state(db, key):
 
 def control(db, provider):
     return db.execute("SELECT * FROM provider_control WHERE provider = ?", (provider,)).fetchone()
+
+
+def manual_weather_used(db, day):
+    row = db.execute("SELECT batches FROM manual_weather_budget WHERE utc_day = ?", (day,)).fetchone()
+    return row["batches"] if row else 0
+
+
+def charge_manual_weather(db, day, limit):
+    with db:
+        db.execute("BEGIN IMMEDIATE")
+        if manual_weather_used(db, day) >= limit:
+            return False
+        db.execute("""
+            INSERT INTO manual_weather_budget VALUES (?, 1)
+            ON CONFLICT(utc_day) DO UPDATE SET batches=batches+1
+        """, (day,))
+        return True
 
 
 def save(db, source, now, data, error, failures, next_due, provider_block=None):
@@ -114,7 +138,7 @@ def save(db, source, now, data, error, failures, next_due, provider_block=None):
                     """, (reading["source_id"], observed,
                           utc(processed_at).timestamp() if processed_at else None, now,
                           reading["temperature_c"], encode(metadata)))
-            else:
+            elif source.kind != "camera":
                 encoded = encode(data)
                 prior = db.execute("SELECT data FROM snapshots WHERE id = ?", (snapshot,)).fetchone()
                 if prior is None or encoded != prior["data"]:
@@ -143,6 +167,7 @@ def prune(db, now):
                    "(SELECT snapshot_id FROM source_state WHERE snapshot_id IS NOT NULL)",
                    (now - FORECAST_RETENTION,))
         db.execute("DELETE FROM nelson WHERE observed < ?", (now - OBSERVATION_RETENTION,))
+        db.execute("DELETE FROM manual_weather_budget WHERE utc_day < ?", (now // 86400 - 7,))
 
 
 def observations(db, now, limit):

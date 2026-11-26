@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.3.2 (proposed) — 2026-11-26
+## v0.3.2.1 (proposed) — 2026-11-26
+
+- Add an optional, attributed DriveBC Highway 6 junction still to the private Overview and Webcams tabs, with automatic updates, saved selection, enlarged viewing, and stale and unavailable states. Keep resort sources link-only pending permission.
+- Persist a six-batch UTC daily cap on early Open-Meteo requests through Refresh Data. Scheduled weather and eligible camera checks retain their own cadence and backoff.
+- Verify live weather and the still in Chromium at 1920×1080 and 390×844. Keep live screenshots and caches outside GitHub.
+
+## v0.3.2 (merged) — 2026-11-26
 
 - Connect the existing dashboard to the loopback service for extended and short-range forecasts, measured Nelson CS temperature, forecast snow and inversions, and multiple derived GFS freezing levels.
 - Add validated same-origin manual refresh, per-source outcomes and a server-side cooldown. Keep automatic scheduling, source backoff and successful cache entries.
