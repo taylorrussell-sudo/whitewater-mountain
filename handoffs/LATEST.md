@@ -1,3 +1,3 @@
 # Latest handoff
 
-[v0.3.0 private dashboard source validation and proof of concept](2026-11-26_1350_v0-3-0-data-validation.md)
+[v0.3.0 live data source validation](2026-11-26_1507_v0-3-0-live-source-validation.md)
