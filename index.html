@@ -50,7 +50,10 @@ html[data-theme=light]{--inversion:#216e66}
 .inversion-ski-context{font-size:12px;line-height:1.35;color:var(--muted);margin-top:5px}
 .inversion-ski-context p{margin:2px 0}
 .inversion-ski-context strong{color:var(--text);font-weight:600}
-@media(min-width:1500px) and (min-height:850px){#overview .temperature-plot{max-height:86px}#overview .inversion-comparison{margin-top:4px}#overview .inversion-timing{margin-top:4px}}
+@media(min-width:1500px) and (min-height:850px){
+  #overview .temperature-plot{max-height:96px}
+  #overview .inversion-comparison,#overview .inversion-timing{margin-top:4px}
+}
 </style></head><body><header><div class="brand"><svg viewBox="0 0 60 60" aria-hidden="true"><path d="M4 48 21 23 29 35 41 9 57 48Z" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linejoin="round"/><path d="m34 24 7-15 7 17-7-5Z" fill="currentColor"/><path d="M6 53h49" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><div><div class="kicker">Nelson · British Columbia</div><h1>Whitewater<span style="font-weight:350"> / Mountain</span></h1><small>Independent mountain conditions dashboard · v0.2.1</small></div></div><div class="toolbar"><label><span class="kicker">Scenario </span><select id="scenario"><option value="powder">Powder day</option><option value="storm">Incoming storm</option><option value="normal">Normal winter day</option><option value="warm">Warm / rain-on-snow</option><option value="exceptional">Exceptional snowfall</option><option value="inversion">Valley temperature inversion</option></select></label><label><span class="kicker">Theme </span><select id="theme"><option value="dark">Dark</option><option value="light">Light</option><option value="auto">Auto</option></select></label></div></header><main><div class="demo"><strong>DESIGN PROTOTYPE · SIMULATED DATA.</strong> No live weather, snow or avalanche report. Do not use for travel or safety decisions. <a href="https://avalanche.ca/" target="_blank" rel="noopener">Official Avalanche Canada forecast ↗</a></div><nav aria-label="Mountain dashboard"><button data-tab="overview" aria-current="page">Overview</button><button data-tab="powder">Powder</button><button data-tab="webcams">Webcams</button><button data-tab="avalanche">Avalanche</button><button data-tab="info">Info</button></nav>
 <section id="overview" class="section active"><div id="metrics" class="metrics"></div><div class="grid"><article class="card"><div class="cardhead"><h2>Mountain profile</h2><span class="tag">Schematic</span></div><div id="profile"></div><div class="profile-notes"><small>Forecast 0°C atmospheric level · simulated</small><small class="cold-air-key" id="cold-air-key" hidden>Cold valley air · schematic</small></div></article><article class="card"><div class="cardhead"><h2>Powder watch</h2><span class="tag">24-hour windows</span></div><div id="powdercards"></div><div id="powdersummary" class="notice"></div><button class="tight" data-go="powder">Explore powder outlook →</button></article><article class="card"><div class="cardhead"><h2>Mountain webcams</h2><span class="tag">Preview</span></div><div id="camhero"></div><div id="camchips" class="chips"></div><div id="camlink" class="linkline"></div><small>Illustrated placeholder, not a camera image.</small></article><article class="card span2 weather-outlook">
   <section aria-labelledby="outlook-title">
@@ -79,15 +82,15 @@ html[data-theme=light]{--inversion:#216e66}
   </tbody></table>
   <p>These provisional thresholds describe the station difference for this dashboard. Meteorological inversions concern how air temperature changes with height. The two sites are at different locations, and local conditions can affect their temperatures. Two readings cannot establish the vertical temperature structure or the cold layer’s height, depth, or shape. The hatched band is a schematic cue for a positive observed signal.</p>
   <p>Circles show simulated observations. Diamonds show the forecast pair with the largest lodge-minus-valley difference, using the earliest pair for ties. Forecast hours are relative to the scenario start. Consecutive comparable samples three hours apart can bracket onset and dissipation of the positive run containing the peak. When both transitions are bracketed, the duration range spans the time between the first and last positive samples up to the time between the surrounding nonpositive samples.</p>
-  <p>The inversion comparison is independent of the forecast 0°C level, powder alerts, and avalanche ratings. A single freezing level may not describe an inverted temperature profile; precipitation type depends on the full atmospheric profile.</p>
+  <p>The inversion comparison is independent of the forecast 0°C level, powder alerts, and avalanche ratings. An inversion can complicate the relationship between elevation and freezing. Precipitation type depends on the full atmospheric profile.</p>
   <h3>What this could mean for skiing</h3>
-  <p>A subzero but warmer lodge can be less cold than the valley; wind and clothing affect comfort. Above-freezing lodge air can contribute to snow softening or thaw, but snow history, radiation, wind and precipitation also matter. The station difference alone cannot predict powder quality, sunshine, visibility, road conditions or avalanche danger.</p>
-  <p>The inversion example includes a mock observation of valley fog and clear lodge skies at scenario start. The ski context shows that contrast only when the sky observations match the temperature pair in time and type; otherwise the sky contrast is unavailable. Forecast sky conditions are not supplied. Forecast dissipation means the positive station-temperature difference is expected to end within the indicated bracket, not that all valley cloud or inversions will necessarily disappear.</p>
+  <p>Subzero air can be milder at the lodge than in the valley. Wind and clothing affect comfort. Above-freezing air can contribute to snow softening or thaw. Snow history, radiation, wind and precipitation also affect the snow surface. The station difference alone cannot predict powder quality, sunshine, visibility, road conditions or avalanche danger.</p>
+  <p>The inversion example includes a mock observation of valley fog and clear lodge skies at scenario start. The ski context reports the valley-fog and clear-lodge contrast when valid sky readings match the temperature pair in time and type. The forecast sky comparison is unavailable in the demo. The dissipation bracket estimates when the station-temperature difference becomes zero or negative. Valley cloud or inversions at other elevations may persist.</p>
 </article></div></section></main><footer><span>Independent family dashboard concept · not affiliated with Whitewater Mountain Resort.</span><span>All conditions simulated · no connection to home systems · v0.2.1</span></footer>
 <script>
 const $=id=>document.getElementById(id);const levels=['Normal conditions','Fresh snow','Powder watch','Powder day','Major powder day','Exceptional snowfall'];const level=n=>n>=40?5:n>=25?4:n>=15?3:n>=10?2:n>=5?1:0;const days=['Today','Tomorrow','Day 3','Day 4','Day 5','Day 6','Day 7'];const sc={powder:{valley:1,overnight:19,actual:26,depth:138,season:312,summit:-7,lodge:-4,freeze:800,nordic:-1,wind:12,snow:[10,18,5,2,1,4,8],fl:[800,700,900,1100,1300,1000,800],temp:[-7,-8,-5,-3,-2,-4,-6],quality:'Cold fresh snow potential',hours:'Overnight / morning',danger:[3,3,2]},storm:{valley:3,overnight:2,actual:5,depth:104,season:238,summit:-5,lodge:-2,freeze:1000,nordic:1,wind:32,snow:[8,35,15,5,3,2,1],fl:[1000,800,650,900,1200,1100,900],temp:[-5,-7,-9,-5,-3,-4,-5],quality:'Deep snow, wind exposure',hours:'Storm peaks tomorrow',danger:[4,3,3]},normal:{valley:4,overnight:1,actual:2,depth:97,season:205,summit:-4,lodge:-1,freeze:1200,nordic:2,wind:8,snow:[1,3,0,2,0,1,2],fl:[1200,1000,1300,1500,1200,1000,900],temp:[-4,-5,-3,-1,-4,-5,-6],quality:'Limited fresh snow',hours:'Light scattered flurries',danger:[2,2,1]},warm:{valley:10,overnight:0,actual:0,depth:110,season:270,summit:2,lodge:5,freeze:2350,nordic:8,wind:20,snow:[0,0,0,3,7,2,1],fl:[2350,2500,2200,1800,1200,1000,900],temp:[2,4,2,-1,-5,-5,-6],quality:'Wet snow / rain risk',hours:'Cooling later in outlook',danger:[3,3,2]},exceptional:{valley:-3,overnight:41,actual:48,depth:192,season:397,summit:-10,lodge:-7,freeze:550,nordic:-4,wind:24,snow:[30,28,14,5,1,0,2],fl:[550,500,650,800,900,1100,1300],temp:[-10,-11,-8,-6,-5,-3,-1],quality:'Very deep fresh snow potential',hours:'Continuing storm',danger:[4,4,3]},
   inversion:{
-    valley:-10,skyComparison:{kind:"observed",hour:0,valley:"fog",lodge:"clear"},overnight:0,actual:1,depth:98,season:206,summit:-5,lodge:-2,freeze:500,nordic:-7,wind:5,
+    valley:-10,skyComparison:{kind:'observed',hour:0,valley:'fog',lodge:'clear'},overnight:0,actual:1,depth:98,season:206,summit:-5,lodge:-2,freeze:500,nordic:-7,wind:5,
     snow:[0,1,0,0,1,0,2],fl:[500,650,700,600,800,800,900],temp:[-5,-3,-4,-5,-4,-6,-5],
     quality:'Limited fresh snow',hours:'Mostly dry',danger:[2,2,1],
     temperatureForecast:[
@@ -189,16 +192,20 @@ function inversionIndicator(pair, isForecast) {
   </div>`;
 }
 
-// Skiing context is conditional, not a snow-quality, comfort or safety forecast.
 function inversionSkiContext(pair, sky, kind) {
   if (!pair || !Number.isFinite(pair.delta) || !Number.isFinite(pair.lodge) || pair.delta <= 0) return null;
-  const thermal = pair.lodge > 0 ? 'Above-freezing lodge air; snow softening possible.'
-    : pair.lodge === 0 ? 'Lodge at freezing; snow response uncertain.'
-    : 'Less cold at lodge; wind and snow quality still matter.';
-  const comparableSky = sky?.kind === kind && sky.hour === pair.hour;
-  const skyNote = comparableSky && sky.valley === 'fog' && sky.lodge === 'clear'
-    ? 'Valley fog / clear lodge (simulated).'
-    : 'Sky contrast unavailable.';
+  const thermal = pair.lodge > 0 ? 'Above-freezing lodge air may soften snow.'
+    : pair.lodge === 0 ? 'Lodge at 0°C. Snow response varies.'
+    : 'Milder at the lodge. Wind affects comfort.';
+  const skyConditions = ['fog', 'clear'];
+  const comparableSky = sky?.kind === kind && sky.hour === pair.hour &&
+    skyConditions.includes(sky.valley) && skyConditions.includes(sky.lodge);
+  let skyNote = 'Sky contrast unavailable.';
+  if (comparableSky) {
+    skyNote = sky.valley === 'fog' && sky.lodge === 'clear'
+      ? 'Valley fog, clear lodge.'
+      : 'No valley-fog / clear-lodge contrast.';
+  }
   return {thermal, skyNote};
 }
 

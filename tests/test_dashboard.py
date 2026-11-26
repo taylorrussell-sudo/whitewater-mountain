@@ -177,17 +177,38 @@ class DashboardTest(TestCase):
         expect(panel).to_be_hidden()
         self.page.locator("#scenario").select_option("inversion")
         expect(panel).to_be_visible()
-        expect(panel).to_contain_text("Observed · simulated:")
-        expect(panel).to_contain_text("Less cold at lodge; wind and snow quality still matter.")
-        expect(panel).to_contain_text("Valley fog / clear lodge (simulated).")
-        expect(panel).to_contain_text("Forecast peak · simulated:")
-        expect(panel).to_contain_text("Sky contrast unavailable.")
-        self.page.evaluate("sc.inversion.skyComparison.hour = 3; render()")
-        expect(panel).not_to_contain_text("Valley fog / clear lodge")
+        observed = panel.locator("p").nth(0)
+        forecast = panel.locator("p").nth(1)
+        expect(observed).to_have_text(
+            "Observed · simulated: Milder at the lodge. Wind affects comfort. Valley fog, clear lodge."
+        )
+        expect(forecast).to_have_text(
+            "Forecast peak · simulated: Milder at the lodge. Wind affects comfort. Sky contrast unavailable."
+        )
+
+        self.page.evaluate("sc.inversion.skyComparison.valley = 'clear'; render()")
+        expect(observed).to_contain_text("No valley-fog / clear-lodge contrast.")
+        self.page.evaluate("delete sc.inversion.skyComparison.valley; render()")
+        expect(observed).to_contain_text("Sky contrast unavailable.")
+        self.page.evaluate("""() => {
+            sc.inversion.skyComparison = {kind:'observed', hour:3, valley:'fog', lodge:'clear'};
+            sc.inversion.forecastSkyComparison = {kind:'observed', hour:6, valley:'fog', lodge:'clear'};
+            render();
+        }""")
+        expect(observed).to_contain_text("Sky contrast unavailable.")
+        expect(forecast).to_contain_text("Sky contrast unavailable.")
+        self.page.evaluate("sc.inversion.forecastSkyComparison.kind = 'forecast'; render()")
+        expect(observed).to_contain_text("Sky contrast unavailable.")
+        expect(forecast).to_contain_text("Valley fog, clear lodge.")
+        expect(forecast).not_to_contain_text("unavailable")
+
         self.page.evaluate("sc.inversion.lodge = 2; render()")
-        expect(panel).to_contain_text("Above-freezing lodge air; snow softening possible.")
+        expect(observed).to_contain_text("Above-freezing lodge air may soften snow.")
         self.page.evaluate("sc.inversion.lodge = 0; render()")
-        expect(panel).to_contain_text("Lodge at freezing; snow response uncertain.")
+        expect(observed).to_contain_text("Lodge at 0°C. Snow response varies.")
+        self.page.evaluate("sc.inversion.lodge = sc.inversion.valley; render()")
+        expect(panel.locator("p")).to_have_count(1)
+        expect(panel).to_contain_text("Forecast peak · simulated")
         self.page.locator("#scenario").select_option("normal")
         expect(panel).to_be_hidden()
 
@@ -291,7 +312,7 @@ class DashboardTest(TestCase):
     def test_responsive_layout(self):
         self.page.add_style_tag(content="html { scrollbar-gutter: stable }")
         self.page.locator("#scenario").select_option("inversion")
-        for width in (320, 390, 420, 421, 640, 641, 768, 850, 851, 1024):
+        for width in (320, 390, 420, 421, 640, 641, 768, 850, 851, 1024, 1051):
             self.page.set_viewport_size({"width": width, "height": 800})
             for tab in TABS:
                 with self.subTest(width=width, tab=tab):
@@ -299,7 +320,7 @@ class DashboardTest(TestCase):
                     clipped = self.page.evaluate("""() => {
                         const elements = document.querySelectorAll(
                             'html, .section.active :is(.card, .danger, .forecastdays, .powder, .orb, .metric, ' +
-                            '.inversion-panel, .inversion-indicator)'
+                            '.inversion-panel, .inversion-indicator, .inversion-ski-context, .inversion-ski-context p)'
                         );
                         return [...elements]
                             .filter(el => el.scrollWidth > el.clientWidth + 1)

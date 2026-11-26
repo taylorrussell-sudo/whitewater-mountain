@@ -6,7 +6,7 @@
 - [x] Codex read-only baseline audit completed and independently reviewed; [timestamped report](handoffs/2026-11-26_0845_baseline-audit.md). Browser tests reported by Codex, not independently rerun.
 - [x] v0.1.1 baseline improvements implemented for review: restore webcam keyboard focus, correct narrow-screen overflow and camera touch target sizing, complete simulated avalanche severity styling, align powder alert styling with Info, and add lightweight reproducible regression tests. Preserve all existing scenarios and verify wall and mobile layouts.
 - [x] v0.2 temperature inversion graphics implemented for review. Added a simulated inversion scenario, schematic cold valley air, temperature-by-elevation plot, separate observed and forecast comparisons, and sample-bracketed forecast timing. Info documents the approved provisional dashboard thresholds and limitations.
-- [ ] v0.2.1 inversion ski context implemented on review branch; run the extended browser suite and verify physical-device layout before release.
+- [x] v0.2.1 inversion ski context implemented and verified in Chromium at wall and mobile viewport sizes. Physical-device acceptance remains open above.
 - [ ] Validate Whitewater source permissions, exact elevations and reliable field extraction; verify camera timestamps, Nordic data and DriveBC source. Confirm Avalanche Canada region/API and expiry semantics before displaying real ratings.
 - [ ] Live data architecture: independent source adapters, cache, provenance, freshness, error handling; validate model snowfall and rolling windows. No public Pi exposure.
 - [ ] Family feedback, release acceptance, Pi integration and verified encrypted backup/recovery coverage.

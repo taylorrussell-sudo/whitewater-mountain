@@ -2,7 +2,7 @@
 
 ## v0.2.1 (proposed) — 2026-11-26
 - Add compact simulated skiing implications for observed and forecast inversion signals, including temperature-dependent softening potential and evidence-gated sky contrast.
-- Clarify forecast breakdown and atmospheric-profile limitations in Info. Add regression coverage; browser execution pending.
+- Clarify forecast breakdown and atmospheric-profile limitations in Info. Verify the 1920×1080 overview without scrolling and extend mobile and sky-comparison regression coverage.
 
 ## v0.2 (merged and published) — 2026-11-26
 
