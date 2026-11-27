@@ -11,7 +11,9 @@ state_dir=$(mktemp -d)
 python -B -m mountain_service serve --db "$state_dir/mountain.sqlite"
 ```
 
-Open `http://127.0.0.1:8765` for the private dashboard. Collection defaults to disabled. Use repeated `--collect` flags for explicitly authorized sources. The development [service guide](mountain_service/README.md) lists source keys, refresh behavior and cache operations. Add `--collect drivebc_whitewater` to enable the attributed Highway 6 junction still in Overview and Webcams. For private operation, add `--collect whitewater --collect whitewater_weather` to enable the resort snow report and mountain observations. Resort images are available through the five official links. Refresh Data can advance up to six weather batches per UTC day and checks the camera when eligible. The status line shows the remaining weather budget.
+Open `http://127.0.0.1:8765` for the private dashboard. Collection defaults to disabled. Use repeated `--collect` flags for explicitly authorized sources. The development [service guide](mountain_service/README.md) lists source keys, refresh behavior and cache operations. Add `--collect drivebc_whitewater` to enable the attributed Highway 6 junction still in Overview and Webcams. For private operation, add `--collect whitewater --collect whitewater_weather` to enable the resort snow report and mountain observations. Refresh Data can advance up to six weather batches per UTC day and checks the DriveBC camera when eligible. The status line shows the remaining weather budget.
+
+In the private Webcams tab, **Open Whitewater webcam gallery (new tab)** takes you to the resort’s stills and time-lapses. Individual official still links remain available. [Webcam integration review](DATA_SOURCES.md#whitewater-webcam-integration-review-before-v033)
 
 The [synthetic visual review](review/v0.3.2.2/README.md) includes wall, phone and webcam screenshots with text descriptions.
 
@@ -27,7 +29,7 @@ python -m playwright install chromium
 python -B -m unittest discover -s tests -v
 ```
 
-Set `CHROMIUM_PATH` to the executable path to use an installed Chromium build. The suite checks official link destinations without opening them. Physical touchscreen and other browser checks are tracked in [BACKLOG.md](BACKLOG.md).
+Set `CHROMIUM_PATH` to the executable path to use an installed Chromium build. The suite checks official link destinations and gallery navigation with a fixture, without contacting providers. Physical touchscreen and other browser checks are tracked in [BACKLOG.md](BACKLOG.md).
 
 ## Deployment direction (approved 2026-11-26)
 
