@@ -41,9 +41,11 @@ class PrivateEdgeTest(unittest.TestCase):
             render("lan.conf", ingress / "lan.conf", [
                 ("192.0.2.10", "127.0.0.1"), ("8780", str(lan_port)), ("192.0.2.0/24", "127.0.0.1/32"),
             ])
-            render("tailscale.conf", ingress / "tailscale.conf", [("8781", str(tail_port))])
             lan_host = f"127.0.0.1:{lan_port}"
-            tail_host = "replace-me.example.invalid"
+            tail_host = "demo--pi.example.invalid"
+            render("tailscale.conf", ingress / "tailscale.conf", [
+                ("8781", str(tail_port)), ("replace-me.example.invalid", tail_host),
+            ])
             lan_origin = f"http://{lan_host}"
             tail_origin = f"https://{tail_host}"
             nginx = [os.environ["NGINX_PATH"], "-c", str(root / "nginx.conf")]

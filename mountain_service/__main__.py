@@ -46,8 +46,9 @@ def service_lock(path):
 
 
 def edge_origin(value):
-    match = re.fullmatch(r"https?://([a-z0-9]+(?:[.-][a-z0-9]+)*)(?::([1-9][0-9]{0,4}))?", value)
-    if not match or (match[2] and int(match[2]) > 65535):
+    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    match = re.fullmatch(rf"https?://({label}(?:\.{label})*)(?::([1-9][0-9]{{0,4}}))?", value)
+    if not match or len(match[1]) > 253 or (match[2] and int(match[2]) > 65535):
         raise argparse.ArgumentTypeError("Use a canonical HTTP(S) origin with a DNS name or IPv4 address")
     if (value.startswith("https://") and match[2] == "443"
             or value.startswith("http://") and match[2] == "80"):
