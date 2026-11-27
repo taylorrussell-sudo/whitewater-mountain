@@ -3,15 +3,18 @@
 
   document.title = 'Whitewater · Mountain Conditions';
 
-  const timeFormat = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Vancouver', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  });
-  const dayFormat = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Vancouver', month: 'short', day: 'numeric',
-  });
   const date = value => new Date(typeof value === 'number' ? value * 1000 : value);
-  const time = value => value == null ? '—' : timeFormat.format(date(value));
+  const dateFormat = (timeZone, clock) => new Intl.DateTimeFormat('en-CA', {
+    timeZone, month: 'short', day: 'numeric', ...(clock && {hour: 'numeric', minute: '2-digit'}),
+  });
+  const pacificChange = Date.parse('2026-03-08T10:00:00Z');
+  const historicalTime = dateFormat('America/Vancouver', true);
+  const historicalDay = dateFormat('America/Vancouver', false);
+  const pacificTime = dateFormat('Etc/GMT+7', true);
+  const pacificDay = dateFormat('Etc/GMT+7', false);
+  const time = value => value == null ? '—'
+    : (date(value) >= pacificChange ? pacificTime : historicalTime).format(date(value));
+  const day = value => (date(value) >= pacificChange ? pacificDay : historicalDay).format(date(value));
   const rounded = value => Number(value.toFixed(1));
   const units = (value, unit) => Number.isFinite(value) ? `${rounded(value)} ${unit}` : 'Unavailable';
   const temperature = value => Number.isFinite(value) ? fmt(rounded(value)) : 'Unavailable';
@@ -23,7 +26,7 @@
     ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(label)}</a>`
     : escape(label);
   const credit = source => source
-    ? `${link(source.link, source.credit)} · ${link(source.licence, 'Licence')}` : '';
+    ? `${link(source.link, source.credit)}${source.licence ? ' · ' + link(source.licence, 'Licence') : ''}` : '';
   const sourceStatus = source => ({
     fresh: 'Fresh', stale: 'Stale', unavailable: 'Unavailable', disabled: 'Collection disabled',
   })[source?.status] ?? 'Unavailable';
@@ -32,12 +35,13 @@
     queued: 'Queued', checking: 'Checking…', updated: 'Check succeeded',
     failed: 'Check failed', backoff: 'Skipped · source backoff',
     provider_blocked: 'Skipped · provider blocked', provider_cooldown: 'Skipped · provider cooldown',
+    provider_spacing: 'Skipped · provider request spacing',
     recently_checked: 'Skipped · recently checked', interrupted: 'Interrupted',
     weather_budget_exhausted: 'Skipped · daily weather budget used',
   };
   const sourceNames = {
     ifs: 'ECMWF IFS HRES', hrdps: 'Canadian HRDPS', nelson_cs: 'Nelson CS',
-    freezing_profile: 'NOAA GFS', drivebc_whitewater: 'DriveBC', whitewater: 'Whitewater resort', southridge: 'Southridge',
+    freezing_profile: 'NOAA GFS', drivebc_whitewater: 'DriveBC', whitewater: 'Whitewater snow report', whitewater_weather: 'Whitewater weather', southridge: 'Southridge',
   };
 
   const html = (id, value) => {
@@ -53,7 +57,7 @@
   const row = (label, value) => `<div class="row"><span>${label}</span><strong>${value}</strong></div>`;
   const metric = (label, value, note = '', status) =>
     `<div class="metric"><strong${value === 'Unavailable' ? ' class="missing"' : ''}>${value}</strong>
-     <span>${label}</span>${note ? `<small>${note}</small>` : ''}${status ? `<span> · ${status}</span>` : ''}</div>`;
+     <span>${label}</span><small>${note}${status && status !== 'Fresh' ? `${note ? ' · ' : ''}${status}` : ''}</small></div>`;
   const box = (label, value) => `<div><strong>${value}</strong><span>${label}</span></div>`;
   const hour = 3600;
   const timeSeries = (point, field) => new Map(
@@ -83,7 +87,7 @@
     return forecastInversion(samples, 1);
   }
 
-  function renderLiveInversion(ifs, hrdps, anchor) {
+  function renderLiveInversion(ifs, hrdps, anchor, measured) {
     const forecast = inversion(ifs, anchor);
     const shortRange = inversion(hrdps, anchor);
     const panel = $('inversion-timing');
@@ -91,17 +95,21 @@
     const range = bounds => bounds ? bounds.map(at => time(at * hour)).join(' – ') : 'unavailable';
     const validTime = pair => pair ? `Peak · ${time(pair.hour * hour)}` : null;
     const primary = forecast.pair;
-    html('temperature-plot', temperaturePlot(null, primary));
+    html('temperature-plot', temperaturePlot(measured, primary));
     html('inversion-comparison',
-      inversionIndicator(primary, true, {source: 'ECMWF IFS HRES', validTime: validTime(primary)}) +
-      inversionIndicator(shortRange.pair, true, {source: 'Canadian HRDPS', validTime: validTime(shortRange.pair)}));
+      inversionIndicator(measured, false, {source: 'Nelson CS / Lodge', validTime: measured?.validTime}) +
+      inversionIndicator(primary, true, {source: 'IFS HRES', validTime: validTime(primary)}) +
+      inversionIndicator(shortRange.pair, true, {source: 'HRDPS', validTime: validTime(shortRange.pair)}));
     panel.hidden = !(primary?.delta > 0);
     const duration = forecast.duration ? `${forecast.duration.join('–')} h` : 'unavailable';
     text('inversion-timing', panel.hidden ? '' :
       `IFS onset ${range(forecast.onset)} · Dissipation ${range(forecast.dissipation)} · Duration ${duration}`);
-    const ski = inversionSkiContext(primary, null, 'forecast');
-    context.hidden = !ski;
-    html('inversion-ski-context', ski ? `<p>IFS · ${ski.thermal} ${ski.skyNote}</p>` : '');
+    const ski = [
+      ['Observed', inversionSkiContext(measured, null, 'observed')],
+      ['IFS', inversionSkiContext(primary, null, 'forecast')],
+    ].filter(([, detail]) => detail);
+    context.hidden = !ski.length;
+    html('inversion-ski-context', ski.map(([label, detail]) => `<p>${label} · ${detail.thermal} ${detail.skyNote}</p>`).join(''));
   }
 
   function crossingsText(crossings) {
@@ -112,10 +120,11 @@
       : `${Math.round(lower_m)}–${Math.round(upper_m)} m`).join(', ');
   }
 
-  function renderFreezing(source, anchor) {
+  function renderFreezing(source, anchor, coldAir) {
     const data = fresh(source);
     const current = data?.crossings[data.times.indexOf(anchor)] ?? null;
-    html('profile', profile(current, 'main'));
+    html('profile', profile(current, 'main', coldAir));
+    $('cold-air-key').hidden = !coldAir;
     html('profile-valid', `GFS derived · ${crossingsText(current)}${current ? ` · Valid ${time(anchor)}` : ''}${source ? `<br>${credit(source)}` : ''}`);
     const rows = data?.times.map((at, i) => at >= anchor
       ? `<tr><th scope="row">${time(at)}</th><td>${crossingsText(data.crossings[i])}</td></tr>` : '').join('');
@@ -125,9 +134,29 @@
       `<p>${sourceStatus(source)}</p>${source ? `<p class="smallnote">${credit(source)}</p>` : ''}`);
   }
 
+  function stationMetric(label, reading, source) {
+    const current = reading?.status === 'fresh' ? reading : null;
+    const wind = current && Number.isFinite(current.wind_kmh) ? units(current.wind_kmh, 'km/h') : null;
+    const direction = current?.wind_from;
+    const windText = [direction, wind].filter(Boolean).join(' ');
+    const valid = reading ? ` · ${time(reading.valid_at)}` : '';
+    const note = windText ? `Wind ${windText}${valid}` : `Wind unavailable${valid}`;
+    return metric(`${label} · Whitewater measured`, temperature(current?.temperature_c),
+      `${note}`, sourceStatus(reading ?? (source?.status === 'disabled' ? source : null)));
+  }
+
   function renderWeather(weather) {
     const sources = weather?.sources ?? {};
-    const {ifs, hrdps, nelson_cs: nelson, freezing_profile: freezing} = sources;
+    const {ifs, hrdps, nelson_cs: nelson, freezing_profile: freezing,
+      whitewater: report, whitewater_weather: mountain} = sources;
+    const reported = fresh(report)?.values;
+    const stations = mountain?.data?.stations;
+    const rawPair = weather?.measured_inversion;
+    const measured = rawPair ? {
+      valley: rawPair.nelson.temperature_c, lodge: rawPair.lodge.temperature_c,
+      delta: rawPair.lodge.temperature_c - rawPair.nelson.temperature_c,
+      validTime: `Valley ${time(rawPair.nelson.valid_at)} · Lodge ${time(rawPair.lodge.valid_at)}`,
+    } : null;
     const anchor = Math.floor(Date.parse(weather?.as_of) / (1000 * hour)) * hour;
     const lodge = fresh(ifs)?.points.lodge;
     const hrdpsData = fresh(hrdps);
@@ -147,26 +176,33 @@
 
     html('metrics', [
       metric('Nelson CS · measured', temperature(reading?.temperature_c), reading ?
-        `<br>Valid ${time(reading.valid_at)}` : '', sourceStatus(nelson)),
-      metric('Lodge · IFS forecast', temperature(temp.value), temp.at ? `<br>Valid ${time(temp.at)}` : '', sourceStatus(ifs)),
-      metric('Lodge wind · IFS forecast', units(wind.value, 'km/h'), wind.at ? `<br>Valid ${time(wind.at)}` : '', sourceStatus(ifs)),
+        `Valid ${time(reading.valid_at)}` : '', sourceStatus(nelson)),
+      metric('Lodge · IFS forecast', temperature(temp.value), temp.at ? `Valid ${time(temp.at)}` : '', sourceStatus(ifs)),
       metric('Snow · IFS next 24 h', units(next?.[24], 'cm'), Number.isFinite(next?.[24]) ?
-        `<br>Ends ${time(snow.start + 24 * hour)}` : '', sourceStatus(ifs)),
-      metric('Reported snow · last 24 h', 'Unavailable'),
-      metric('Lodge · measured', 'Unavailable'),
+        `Ends ${time(snow.start + 24 * hour)}` : '', sourceStatus(ifs)),
+      metric(report ? link(report.link, 'Whitewater · reported 24 h') : 'Whitewater · reported 24 h', units(reported?.['24h'], 'cm'), report?.data ?
+        `Report ${time(report.data.report_updated_at)}` : '', sourceStatus(report)),
+      stationMetric('Lodge', stations?.lodge, mountain),
+      stationMetric('Summit', stations?.summit, mountain),
     ].join(''));
-    const rings = `<div class="powderpair">${ring(null, false, 'LAST 24 HOURS', 'Whitewater')}
+    const rings = `<div class="powderpair">${ring(reported?.['24h'] ?? null, false, 'LAST 24 HOURS', 'Whitewater')}
       ${ring(peak?.cm ?? null, true, 'PEAK 24H', 'IFS HRES')}</div>`;
     html('powdercards', rings);
     html('powdercards2', rings);
     text('powdersummary', peak ? `IFS peak · ${time(peak.start)} – ${time(peak.end)}`
       : 'Peak forecast unavailable. A complete 72-hour window is required.');
+    html('resort-report', `<p class="smallnote">${report ? credit(report) + ' · ' : ''}Summit snow plot · 1,950 m
+      · ${sourceStatus(report)}${report?.data ? ' · Updated ' + time(report.data.report_updated_at) : ''}</p>
+      <div class="details">${[
+        ['overnight', 'Overnight'], ['24h', 'Last 24 h'], ['48h', 'Last 48 h'], ['3d', 'Last 3 days'],
+        ['7d', 'Last 7 days'], ['season', 'Season snowfall'], ['base_depth', 'Snowpack depth'],
+      ].map(([key, label]) => box(label, units(reported?.[key], 'cm'))).join('')}</div>`);
     html('overviewchart', chart);
     html('powderchart', chart);
     html('dailystrip', daily.map((value, i) => {
       const start = snow?.start + i * 24 * hour;
       const firstTemp = lodgeTemps.get(start);
-      return `<div><span>${Number.isFinite(start) ? dayFormat.format(date(start)) : chartDays[i]}</span>
+      return `<div><span>${Number.isFinite(start) ? day(start) : chartDays[i]}</span>
         <strong>${Number.isFinite(firstTemp) ? temperature(firstTemp) : '—'}</strong>
         <span>${Number.isFinite(value) ? units(value, 'cm') : '—'} snow</span></div>`;
     }).join(''));
@@ -192,7 +228,7 @@
     html('totals2', [
       box('Next 7 days', units(daily.every(Number.isFinite) ? sum(daily) : null, 'cm')),
       box('Peak 24 h / 72 h', units(peak?.cm, 'cm')),
-      box('Reported 24 h', 'Unavailable'),
+      box('Reported 24 h', units(reported?.['24h'], 'cm')),
     ].join(''));
     text('timing', peak ? `Peak forecast valid ${time(peak.start)} – ${time(peak.end)}. Complete-hour totals start ${time(snow.start)}.`
       : 'Forecast timing unavailable.');
@@ -200,8 +236,8 @@
     html('quality', row('Lodge temperature', temperature(temp.value)) + row('Lodge wind', units(wind.value, 'km/h')));
     html('dangerOverview', '<p class="warn">Avalanche ratings unavailable.</p>');
     text('nordictemp', 'Unavailable');
-    renderFreezing(freezing, anchor);
-    renderLiveInversion(ifs, hrdps, anchor);
+    renderFreezing(freezing, anchor, measured?.delta > 0);
+    renderLiveInversion(ifs, hrdps, anchor, measured);
   }
 
   function sourceDetails(weather, refresh) {
@@ -210,8 +246,13 @@
       const data = source?.data;
       const coverage = data?.points?.lodge.coverage.temperature_2m ?? data?.coverage?.crossings;
       let valid = data?.valid_at ? time(data.valid_at) : '—';
+      if (data?.report_updated_at) valid = `Report updated ${time(data.report_updated_at)}`;
+      if (data?.stations) valid = ['lodge', 'summit'].map(site => {
+        const reading = data.stations[site];
+        return reading ? `${reading.station} ${time(reading.valid_at)} · ${sourceStatus(reading)}` : '';
+      }).filter(Boolean).join(' / ');
       if (coverage?.first_valid_at) valid = `${time(coverage.first_valid_at)} – ${time(coverage.last_valid_at)}`;
-      if (key === 'whitewater' || key === 'southridge') {
+      if (key === 'southridge') {
         return `<li><strong>${name}</strong><small>Unavailable · collection disabled pending permission</small>
           ${source ? link(source.link, 'Official source') : ''}</li>`;
       }
@@ -220,7 +261,7 @@
       return `<li><strong>${name}</strong><small>${sourceStatus(source)}${provider ? ` · ${provider}` : ''}</small>
         <small>Last checked ${time(source?.checked_at)}</small>
         <small>Last successful check ${time(source?.last_success_at)}</small>
-        <small>Valid ${valid}</small>
+        <small>${data?.report_updated_at ? valid : `Valid ${valid}`}</small>
         ${source?.next_attempt_at ? `<small>Next scheduled check ${time(source.next_attempt_at)}</small>` : ''}
         ${source?.last_error ? `<small>Last error · ${escape(source.last_error)}</small>` : ''}
         ${outcome ? `<small>Manual refresh · ${outcome}</small>` : ''}
@@ -243,7 +284,7 @@
   const cameraLinks = index => index === road
     ? link(roadLink, 'Official DriveBC camera')
     : link(cams[index][2], 'Official resort image');
-  const resortUnavailable = '<div class="camera live-camera" data-empty><p class="camera-empty">Image unavailable here · display permission pending</p></div>';
+  const resortUnavailable = '<div class="camera live-camera" data-empty><p class="camera-empty">Whitewater Mountain Resort · Open official image</p></div>';
 
   cameraButtons.forEach((button, i) => { button.textContent = cameraNames[i]; });
   const galleryOrder = [road, 0, 1, 2, 3, 4];
@@ -257,10 +298,11 @@
     ${link('https://www.drivebc.ca/cameras/626', 'Ymir')}</p>`);
   document.body.insertAdjacentHTML('beforeend', `<dialog id="camera-dialog" aria-labelledby="camera-dialog-title">
     <div class="cardhead"><h2 id="camera-dialog-title">Hwy 6 junction · DriveBC</h2>
-    <form method="dialog"><button type="submit" autofocus>Close</button></form></div>
+    <button type="button" autofocus>Close</button></div>
     ${still(false)}<div class="linkline live-camera-links">${cameraLinks(road)}</div>
     <small>${cameraCredit}</small></dialog>`);
   const cameraDialog = $('camera-dialog');
+  cameraDialog.querySelector('button').addEventListener('click', () => cameraDialog.close());
 
   function updateStill(container, camera) {
     const image = container.querySelector('img');
@@ -354,7 +396,7 @@
     const budget = refresh?.weather_budget;
     text('weather-budget', budget
       ? ` · Early weather checks ${budget.remaining}/${budget.limit} left` : '');
-    const products = Object.entries(sourceNames).slice(0, 4);
+    const products = Object.entries(sourceNames).filter(([key]) => key !== 'drivebc_whitewater' && key !== 'southridge');
     text('live-summary', weather ? products.map(([key, name]) =>
       `${name} ${lower(sourceStatus(weather.sources[key]))}`).join(' · ') :
       'Weather service unavailable');

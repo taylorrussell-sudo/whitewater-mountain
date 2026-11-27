@@ -10,7 +10,7 @@ from pathlib import Path
 from poc.sources import snowfall_windows, utc
 
 from . import cameras, store
-from .sources import DISABLED, NELSON_CS, SOURCES
+from .sources import DISABLED, NELSON_CS, RESORT_SNOW, RESORT_WEATHER, SOURCES
 
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD = ROOT / "index.html"
@@ -49,7 +49,7 @@ def source_view(db, source, enabled, now):
     if row is None or row["last_success"] is None or row["last_success"] > now:
         return result
 
-    if source.kind == "measured":
+    if source == NELSON_CS:
         latest = store.observations(db, now, 1)
         if latest:
             data = latest[0]
@@ -66,6 +66,19 @@ def source_view(db, source, enabled, now):
                           (row["snapshot_id"],)).fetchone()
     data = json.loads(snapshot["data"])
     result["snapshot_retrieved_at"] = store.iso(snapshot["fetched"])
+    if source == RESORT_SNOW:
+        age = now - utc(data["report_updated_at"]).timestamp()
+        status = freshness(age, source.fresh_for)
+        return {**result, "status": status, "age_seconds": age, "age_basis": "report_update_time", "data": data}
+    if source == RESORT_WEATHER:
+        for reading in data["stations"].values():
+            if reading:
+                age = now - utc(reading["valid_at"]).timestamp()
+                reading.update(status=freshness(age, source.fresh_for), age_seconds=age)
+        readings = [r for r in data["stations"].values() if r and r["age_seconds"] >= 0]
+        age = min((r["age_seconds"] for r in readings), default=None)
+        return {**result, "status": freshness(age, source.fresh_for), "age_seconds": age,
+                "age_basis": "newest_observation_valid_time", "data": data}
     anchor = now // 3600 * 3600
     if source.kind == "forecast":
         for point in data["points"].values():
@@ -86,10 +99,33 @@ def source_view(db, source, enabled, now):
     return result
 
 
+def freshness(age, limit):
+    if age is None or age < 0:
+        return "unavailable"
+    return "fresh" if age <= limit else "stale"
+
+
+def measured_inversion(db, sources, now):
+    mountain = sources[RESORT_WEATHER.key]["data"]
+    lodge = mountain["stations"].get("lodge") if mountain else None
+    if (not lodge or lodge["status"] != "fresh" or lodge["temperature_c"] is None
+            or sources[NELSON_CS.key]["status"] != "fresh"):
+        return None
+    at = utc(lodge["valid_at"]).timestamp()
+    valley = store.observations(db, now, 288, since=now - NELSON_CS.fresh_for)
+    candidates = [(abs(utc(reading["valid_at"]).timestamp() - at), reading) for reading in valley]
+    closest = min(candidates, key=lambda candidate: candidate[0], default=None)
+    if closest is None or closest[0] > 30 * 60:
+        return None
+    return {site: {key: reading[key] for key in ("valid_at", "temperature_c")}
+            for site, reading in (("nelson", closest[1]), ("lodge", lodge))}
+
+
 def weather(db, enabled, now):
-    return {"api_version": 1, "as_of": store.iso(now),
-            "sources": {**DISABLED, **{key: source_view(db, source, enabled, now)
-                                      for key, source in SOURCES.items()}}}
+    sources = {**DISABLED, **{key: source_view(db, source, enabled, now)
+                            for key, source in SOURCES.items()}}
+    return {"api_version": 1, "as_of": store.iso(now), "sources": sources,
+            "measured_inversion": measured_inversion(db, sources, now)}
 
 
 def camera_view(db, enabled, frame, now):

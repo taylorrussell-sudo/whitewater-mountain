@@ -15,8 +15,8 @@ from threading import Event, Thread
 from . import store
 from .cameras import DRIVEBC
 from .api import LocalAPI, coverage
-from .collect import Collector, FetchError, fetch_json, sample
-from .sources import SOURCES
+from .collect import Collector, FetchError, fetch_html, fetch_json, sample
+from .sources import NELSON_CS, RESORT_SNOW, RESORT_WEATHER, SOURCES
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 COLLECTABLE = {**SOURCES, DRIVEBC.key: DRIVEBC}
@@ -68,7 +68,8 @@ def serve(path, port, enabled):
 
 def probe(source):
     start = datetime.now(timezone.utc)
-    data = sample(source, start, time.time, fetch_json)
+    fetch = fetch_html if source in (RESORT_SNOW, RESORT_WEATHER) else fetch_json
+    data = sample(source, start, time.time, fetch)
     status = {"source": source.key, "checked_at": store.iso(time.time()), "status": "no_data"}
     if data is not None:
         status["status"] = "validated_response"
@@ -78,9 +79,13 @@ def probe(source):
                        "coverage": coverage(point["times"], point["values"], int(start.timestamp()) // 3600 * 3600)}
                 for name, point in data["points"].items()
             }
-        elif source.kind == "measured":
+        elif source.key == NELSON_CS.key:
             status["accepted_count"] = len(data)
             status["latest_valid_at"] = max(row["valid_at"] for row in data)
+        elif source == RESORT_SNOW:
+            status["available_fields"] = [key for key, value in data["values"].items() if value is not None]
+        elif source == RESORT_WEATHER:
+            status["available_stations"] = [key for key, value in data["stations"].items() if value]
         else:
             status["valid_profiles"] = sum(row is not None for row in data["crossings"])
             status["max_crossings"] = max(len(row) for row in data["crossings"] if row is not None)

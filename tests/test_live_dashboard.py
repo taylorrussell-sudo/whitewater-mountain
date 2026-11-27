@@ -14,9 +14,10 @@ from playwright.sync_api import expect, sync_playwright
 from mountain_service import cameras, store
 from mountain_service.api import LocalAPI
 from mountain_service.collect import Collector, FetchError
-from mountain_service.sources import SOURCES
+from mountain_service.sources import RESORT_SNOW, RESORT_SOURCES, RESORT_WEATHER, SOURCES
 from mountain_service.tests.test_cameras import jpeg, metadata
 from mountain_service.tests.test_service import ANCHOR, forecast, profile
+from mountain_service.tests.test_whitewater import NOW as RESORT_NOW, snow_html, station_html
 from poc.synthetic import valley_fixture
 
 
@@ -28,12 +29,12 @@ class LiveDashboardTest(unittest.TestCase):
         cls.browser = playwright.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH"))
         cls.addClassCleanup(cls.browser.close)
 
-    def setUp(self):
+    def start(self, resort=False):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         path = Path(directory.name) / "mountain.sqlite"
         store.prepare(path)
-        self.now = ANCHOR
+        self.now = int(RESORT_NOW.timestamp()) if resort else ANCHOR
         self.gate = Event()
         self.gate.set()
         self.ifs_error = None
@@ -41,12 +42,16 @@ class LiveDashboardTest(unittest.TestCase):
         self.stale_nelson = False
         self.camera_frame_number = 0
         self.camera_offline = False
-        collector = Collector(path, (*SOURCES.values(), cameras.DRIVEBC), lambda: self.now, self.fetch,
-                              lambda: self.now, self.fetch_image)
+        self.resort_unavailable = False
+        configured = tuple(source for source in SOURCES.values() if resort or source not in RESORT_SOURCES)
+        if resort:
+            Collector(path, (RESORT_SNOW,), lambda: self.now - 10, fetch_resort=self.fetch_resort).cycle()
+        collector = Collector(path, (*configured, cameras.DRIVEBC), lambda: self.now, self.fetch,
+                              lambda: self.now, self.fetch_image, fetch_resort=self.fetch_resort)
         collector.cycle()
         stop = Event()
         failed = Event()
-        api = LocalAPI(0, path, {*SOURCES, cameras.DRIVEBC.key}, failed, lambda: self.now, collector)
+        api = LocalAPI(0, path, {s.key for s in collector.sources}, failed, lambda: self.now, collector)
         self.origin = f"http://127.0.0.1:{api.server_port}"
         http = Thread(target=api.serve_forever, daemon=True)
         http.start()
@@ -75,6 +80,14 @@ class LiveDashboardTest(unittest.TestCase):
     def tearDown(self):
         self.assertEqual(self.errors, [])
         self.assertTrue(all(url.startswith(self.origin + "/") for url in self.requests))
+
+    def fetch_resort(self, url):
+        if self.resort_unavailable:
+            raise FetchError("http_503", "interval")
+        if url == RESORT_SNOW.link:
+            return snow_html(self.now - 3600)
+        self.assertEqual(url, RESORT_WEATHER.link)
+        return station_html(self.now)
 
     def fetch_image(self, url):
         self.assertEqual(url, cameras.IMAGE_URL)
@@ -113,6 +126,7 @@ class LiveDashboardTest(unittest.TestCase):
         return payload
 
     def test_live_sources_layout_and_multiple_crossings(self):
+        self.start()
         page = self.page
         expect(page.locator("#scenario")).to_be_hidden()
         expect(page.locator("#metrics .metric").nth(0)).to_contain_text("-6.1°C")
@@ -146,6 +160,7 @@ class LiveDashboardTest(unittest.TestCase):
         expect(page.locator("html")).to_have_attribute("data-theme", "light")
 
     def test_camera_selection_enlarge_refresh_and_stale_still(self):
+        self.start()
         page = self.page
         road = page.locator('#camchips button').last
         image = page.locator('#camhero img')
@@ -162,13 +177,14 @@ class LiveDashboardTest(unittest.TestCase):
         lodge.focus()
         page.keyboard.press("Enter")
         expect(lodge).to_be_focused()
-        expect(page.locator('#camhero')).to_contain_text("permission pending")
+        expect(page.locator('#camhero')).to_contain_text("Open official image")
         expect(image).to_have_count(0)
         page.reload()
         expect(lodge).to_have_attribute("aria-pressed", "true")
         road.click()
 
         enlarge = page.locator("#camhero [data-enlarge]")
+        expect(enlarge).to_be_visible()
         enlarge.focus()
         page.keyboard.press("Enter")
         modal = page.get_by_role("dialog")
@@ -201,6 +217,7 @@ class LiveDashboardTest(unittest.TestCase):
         expect(image).to_be_visible()
 
     def test_refresh_progress_partial_failure_staleness_and_recovery(self):
+        self.start()
         page = self.page
         button = page.locator("#refresh-button")
         status = page.locator("#refresh-status")
@@ -240,3 +257,41 @@ class LiveDashboardTest(unittest.TestCase):
         expect(page.locator("#live-summary")).to_contain_text("Nelson CS stale")
         expect(page.locator("#metrics .metric").first).to_contain_text("Unavailable")
         expect(page.locator("#inversion-comparison")).to_contain_text("Forecast")
+
+    def test_whitewater_reports_mountain_conditions_and_measured_inversion(self):
+        self.start(resort=True)
+        page = self.page
+        expect(page.locator("#metrics")).to_contain_text("Wind N 0 km/h")
+        expect(page.locator("#metrics")).to_contain_text("Wind W 9.7 km/h")
+        expect(page.locator("#metrics")).to_contain_text("22 cm")
+        expect(page.locator("#powdercards .powder").first).to_have_attribute("data-level", "3")
+        expect(page.locator("#powdercards .pred strong")).to_have_text("21.6 cm")
+        observed = page.locator("#inversion-comparison .observed")
+        expect(observed).to_contain_text("+5.6°C · Notable")
+        expect(observed).to_contain_text("Valley Nov 26")
+        expect(page.locator("#profile .cold-air-layer")).to_be_visible()
+        self.assertTrue(page.evaluate("document.documentElement.scrollHeight <= innerHeight"))
+
+        page.locator('[data-tab="powder"]').click()
+        report = page.locator("#resort-report")
+        expect(report.locator("strong")).to_have_text(
+            ["17 cm", "22 cm", "26 cm", "33 cm", "52 cm", "108 cm", "65 cm"])
+        expect(report.get_by_role("link", name="Whitewater Mountain Resort")).to_have_attribute(
+            "href", RESORT_SNOW.link)
+
+        self.now += 61
+        page.locator("#refresh-button").click()
+        expect(page.locator("#refresh-status")).to_contain_text("Whitewater weather skipped · recently checked")
+        expect(page.locator("#refresh-status")).to_contain_text("Whitewater snow report skipped · recently checked")
+
+        self.resort_unavailable = True
+        self.now += 31 * 3600
+        expect(page.locator("#refresh-button")).to_be_enabled()
+        page.locator("#refresh-button").click()
+        expect(page.locator("#powdercards2 .powder").first).to_contain_text("Unavailable")
+        expect(report).to_contain_text("Stale")
+        page.locator('[data-tab="overview"]').click()
+        expect(observed).to_contain_text("Unavailable")
+        expect(page.locator("#profile .cold-air-layer")).to_have_count(0)
+        page.set_viewport_size({"width": 320, "height": 844})
+        self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))

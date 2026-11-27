@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.2.2 (proposed) — 2026-11-26
+
+- Document the owner’s private household use decision and unresolved Whitewater site terms. Add opt-in numerical collection from the official snow report and mountain station tables, with two-hour and one-hour minimum request intervals.
+- Populate reported 24-hour powder alerts, the seven-field snow report, lodge and summit conditions, and a timestamp-matched measured Nelson–lodge inversion comparison.
+- Verify the five official resort webcam links and keep their imagery link-only. Preserve the licensed DriveBC view, model forecasts and their existing refresh controls.
+- Add synthetic regressions and accessible wall and mobile screenshots for review.
+
 ## v0.3.2.1 (proposed) — 2026-11-26
 
 - Add an optional, attributed DriveBC Highway 6 junction still to the private Overview and Webcams tabs, with automatic updates, saved selection, enlarged viewing, and stale and unavailable states. Keep resort sources link-only pending permission.

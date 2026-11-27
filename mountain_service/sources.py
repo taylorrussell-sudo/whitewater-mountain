@@ -4,9 +4,11 @@ from dataclasses import dataclass
 from urllib.parse import urlencode
 
 from poc.sources import (
-    FORECAST_ENDPOINT, LODGE, NELSON, VALLEY_ENDPOINT, WHITEWATER_CONDITIONS,
+    FORECAST_ENDPOINT, LODGE, NELSON, VALLEY_ENDPOINT, WHITEWATER_ADVANCED, WHITEWATER_CONDITIONS,
     normalize_valley, number, require, utc, valley_url,
 )
+
+from . import whitewater
 
 FORECAST_FIELDS = {"temperature_2m": "°C", "snowfall": "cm", "wind_speed_10m": "km/h"}
 # Fixed adjacent GFS pressure levels. Skipping a level would bridge an unknown layer.
@@ -80,7 +82,7 @@ class Source:
     provider: str
     credit: str
     link: str
-    licence: str
+    licence: str | None
     interval: int
     fresh_for: int
 
@@ -188,6 +190,22 @@ class Valley(Source):
                 if 0 <= (now - utc(row["valid_at"])).total_seconds() <= 6 * 3600] or None
 
 
+class ResortSnow(Source):
+    def url(self, now):
+        return self.link
+
+    def normalize(self, payload, now):
+        return whitewater.parse_report(payload, now)
+
+
+class ResortWeather(Source):
+    def url(self, now):
+        return self.link
+
+    def normalize(self, payload, now):
+        return whitewater.parse_weather(payload, now)
+
+
 IFS = Forecast("ifs", "ECMWF IFS HRES 9 km", "forecast", "primary_extended", "open-meteo",
                "Open-Meteo / ECMWF", "https://open-meteo.com/en/docs/ecmwf-api",
                OPEN_METEO_LICENCE, 3 * 3600, 9 * 3600, "ecmwf_ifs", 9, 170)
@@ -202,11 +220,15 @@ FREEZING = FreezingProfile("freezing_profile", "NOAA GFS 0.25° pressure profile
                            "freezing_level_guidance", "open-meteo", "Open-Meteo / NOAA NCEP",
                            "https://open-meteo.com/en/docs/gfs-api", OPEN_METEO_LICENCE,
                            6 * 3600, 12 * 3600)
-SOURCES = {source.key: source for source in (IFS, HRDPS, NELSON_CS, FREEZING)}
+RESORT_SNOW = ResortSnow("whitewater", "Whitewater snow report", "reported", "resort_snow",
+                         whitewater.PROVIDER, "Whitewater Mountain Resort",
+                         WHITEWATER_CONDITIONS, None, 2 * 3600, 30 * 3600)
+RESORT_WEATHER = ResortWeather("whitewater_weather", "Whitewater mountain observations", "measured",
+                               "mountain_weather", whitewater.PROVIDER, "Whitewater Mountain Resort",
+                               WHITEWATER_ADVANCED, None, 3600, 2 * 3600)
+RESORT_SOURCES = (RESORT_SNOW, RESORT_WEATHER)
+SOURCES = {source.key: source for source in (IFS, HRDPS, NELSON_CS, FREEZING, *RESORT_SOURCES)}
 DISABLED = {
-    "whitewater": {"label": "Whitewater resort observations", "kind": "measured",
-                   "status": "disabled", "reason": "written_permission_pending",
-                   "link": WHITEWATER_CONDITIONS, "data": None},
     "southridge": {"label": "Southridge RAWS", "kind": "measured", "status": "disabled",
                    "reason": "recurring_use_permission_pending",
                    "link": "https://avalanche.ca/weather/stations/22", "data": None},

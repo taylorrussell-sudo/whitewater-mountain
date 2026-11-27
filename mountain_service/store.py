@@ -11,6 +11,9 @@ from tempfile import TemporaryDirectory
 from poc.sources import utc
 from poc.store import backup as sqlite_backup
 
+from .sources import NELSON_CS
+from .whitewater import PROVIDER as RESORT_PROVIDER
+
 APP_ID = 0x574D3033
 FORECAST_RETENTION = 7 * 86400
 OBSERVATION_RETENTION = 2 * 86400
@@ -121,7 +124,7 @@ def save(db, source, now, data, error, failures, next_due, provider_block=None):
         last_success = previous["last_success"] if previous else None
         if error is None:
             last_success = now
-            if source.kind == "measured":
+            if source.key == NELSON_CS.key:
                 for reading in data:
                     metadata = {k: v for k, v in reading.items() if k != "temperature_c"}
                     observed = utc(reading["valid_at"]).timestamp()
@@ -151,6 +154,9 @@ def save(db, source, now, data, error, failures, next_due, provider_block=None):
                 next_due=excluded.next_due, failures=excluded.failures, error=excluded.error,
                 last_success=excluded.last_success, snapshot_id=excluded.snapshot_id
         """, (source.key, now, next_due, failures, error, last_success, snapshot))
+        if source.provider == RESORT_PROVIDER and error is None:
+            # Keep the latest normalized resort snapshot only.
+            db.execute("DELETE FROM snapshots WHERE source = ? AND id != ?", (source.key, snapshot))
         if provider_block is not None:
             blocked, resume_at = provider_block
             db.execute("""
@@ -170,11 +176,12 @@ def prune(db, now):
         db.execute("DELETE FROM manual_weather_budget WHERE utc_day < ?", (now // 86400 - 7,))
 
 
-def observations(db, now, limit):
+def observations(db, now, limit, since=None):
+    oldest = max(now - OBSERVATION_RETENTION, since) if since is not None else now - OBSERVATION_RETENTION
     rows = db.execute("""
         SELECT * FROM nelson WHERE observed BETWEEN ? AND ?
         ORDER BY observed DESC, processed DESC, feature_id DESC LIMIT ?
-    """, (now - OBSERVATION_RETENTION, now, limit))
+    """, (oldest, now, limit))
     return [{**json.loads(row["metadata"]), "temperature_c": row["temperature_c"],
              "retrieved_at": iso(row["fetched"])} for row in rows]
 
