@@ -145,13 +145,23 @@ def camera_view(db, enabled, frame, now):
 class LocalAPI(ThreadingHTTPServer):
     timeout = 0.5
 
-    def __init__(self, port, path, enabled, collector_failed, clock, collector=None):
+    def __init__(self, port, path, enabled, collector_failed, clock, collector=None, origins=()):
         self.path = path
         self.enabled = enabled
         self.collector_failed = collector_failed
         self.clock = clock
         self.collector = collector
         super().__init__(("127.0.0.1", port), Handler)
+        port = self.server_port
+        hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+        if port == 80:
+            hosts.update(("127.0.0.1", "localhost"))
+        self.origins = dict.fromkeys(hosts)
+        self.origins.update((origin.split("://", 1)[1], origin) for origin in origins)
+        self.origins.update((host, "http://" + host) for host in hosts)
+
+    def handle_error(self, request, client_address):
+        logging.warning("HTTP request failed")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -185,18 +195,15 @@ class Handler(BaseHTTPRequestHandler):
     def reply(self, status, payload, retry_in=0):
         self.send_content(status, store.encode(payload).encode(), "application/json; charset=utf-8", retry_in)
 
-    def is_local(self, require_origin=False):
-        port = self.server.server_port
-        hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
-        if port == 80:
-            hosts.update(("127.0.0.1", "localhost"))
+    def is_allowed(self, require_origin=False):
         host = self.headers.get_all("Host")
         origin = self.headers.get_all("Origin")
-        return (host is not None and len(host) == 1 and host[0] in hosts
-                and (origin == ["http://" + host[0]] or (origin is None and not require_origin)))
+        allowed_origin = self.server.origins.get(host[0]) if host and len(host) == 1 else None
+        return bool(allowed_origin and
+                    (origin == [allowed_origin] or (origin is None and not require_origin)))
 
     def do_POST(self):
-        if not self.is_local(require_origin=True):
+        if not self.is_allowed(require_origin=True):
             self.reply(403, {"error": "same_origin_required"})
             return
         if self.path != "/v1/refresh":
@@ -220,7 +227,7 @@ class Handler(BaseHTTPRequestHandler):
                    refresh["retry_in"] if status == 429 else 0)
 
     def do_GET(self):
-        if not self.is_local():
+        if not self.is_allowed():
             self.reply(403, {"error": "local_requests_only"})
             return
         if self.path in ("/", "/index.html", "/dashboard.js", "/v1/refresh"):
@@ -235,7 +242,7 @@ class Handler(BaseHTTPRequestHandler):
                 db.execute("BEGIN")
                 status, payload = self.route(db, now)
         except sqlite3.Error:
-            logging.exception("API database read failed")
+            logging.error("API database read failed")
             status, payload = 503, {"error": "database_unavailable"}
         self.reply(status, payload)
 
