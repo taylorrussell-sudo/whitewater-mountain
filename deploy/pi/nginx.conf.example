@@ -1,0 +1,27 @@
+# Standalone instance. Do not load this file into another application's Nginx.
+daemon off;
+master_process off;
+pid /run/whitewater-mountain-edge/nginx.pid;
+error_log stderr crit;
+
+events {
+    worker_connections 64;
+}
+
+http {
+    access_log off;
+    server_tokens off;
+    client_header_timeout 5s;
+    client_body_timeout 5s;
+    send_timeout 5s;
+    keepalive_timeout 5s;
+    client_max_body_size 1k;
+    client_body_temp_path /run/whitewater-mountain-edge/client_body;
+    proxy_temp_path /run/whitewater-mountain-edge/proxy;
+    fastcgi_temp_path /run/whitewater-mountain-edge/fastcgi;
+    uwsgi_temp_path /run/whitewater-mountain-edge/uwsgi;
+    scgi_temp_path /run/whitewater-mountain-edge/scgi;
+
+    limit_conn_zone $server_port zone=mountain_connections:64k;
+    include /etc/whitewater-mountain/ingress/*.conf;
+}

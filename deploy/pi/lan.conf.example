@@ -1,0 +1,11 @@
+# Documentation-only address and CIDR. Replace every occurrence after preflight.
+server {
+    listen 192.0.2.10:8780;
+    server_name 192.0.2.10;
+    if ($http_host != "192.0.2.10:8780") { return 403; }
+
+    # Limit the listener to the approved trusted household network.
+    allow 192.0.2.0/24;
+    deny all;
+    include /etc/whitewater-mountain/proxy.conf;
+}

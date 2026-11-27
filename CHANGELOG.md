@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.3 (proposed) — 2026-11-26
+
+- Package a versioned Raspberry Pi install with dedicated systemd service and state, optional isolated household LAN and authenticated Tailscale Serve ingress, and explicit source opt-ins.
+- Keep the API on loopback and validate exact approved browser origins for private proxy refresh. Add proxy smoke tests and bound service resources.
+- Document preflight, staged acceptance, sanitized health checks, SQLite backup and restore, and release rollback. Keep the standalone simulation and simulated Pages preview. [Pi runbook](deploy/pi/README.md)
+
 ## Pre-v0.3.3 webcam review (proposed) — 2026-11-26
 
 - Add a new-tab link to the official Whitewater gallery in the private Webcams tab. Retain the five individual resort image shortcuts and the licensed DriveBC junction view.

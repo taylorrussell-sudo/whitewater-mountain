@@ -1,4 +1,4 @@
-# Private mountain weather service v0.3.2.2
+# Private mountain weather service v0.3.3 (proposed)
 
 The service requires Python 3.10+ on Linux and uses Python's standard library and SQLite. It listens on IPv4 loopback. Open the service URL for the private dashboard. Opening the repository’s static index directly runs the standalone simulation.
 
@@ -33,11 +33,11 @@ The camera uses one roughly 1 KiB metadata response and downloads a still only w
 
 ## Local API v1
 
-Requests must address `127.0.0.1` or `localhost` at the bound port. Dashboard assets and JSON use `Cache-Control: no-store`. Camera stills use private browser caching for up to five minutes. The service serves only the dashboard, its live script and the documented endpoints. The dashboard reads same-origin cached data on a timer. Network access beyond loopback requires separate architecture and access approval.
+Direct requests must address `127.0.0.1` or `localhost` at the bound port. For the reviewed private proxy, pass each canonical HTTP(S) origin with `--allow-origin`. The listener stays on loopback. The API compares the request's Host and any Origin with the configured browser origin and ignores forwarded identity headers. Dashboard assets and JSON use `Cache-Control: no-store`. Camera stills use private browser caching for up to five minutes. The service serves only the dashboard, its live script and the documented endpoints. The dashboard reads same-origin cached data on a timer. Network access requires separate approval and the proxy and access controls in the [Pi package](../deploy/pi/README.md).
 
 - **`GET /`** serves the live dashboard using the same HTML as the static simulation. The service marks the page as private and includes the live script.
 - **`GET /v1/refresh`** returns the current manual batch’s phase, per-source outcomes, remaining cooldown seconds and `weather_budget` (`limit`, `remaining` and UTC `resets_at`). Phases are `idle`, `queued`, `running`, `complete`, and `failed` (interrupted batch). A completed batch can contain individual failures or skips.
-- **`POST /v1/refresh`** requires an exact same-origin HTTP `Origin` matching the local `Host`, the `X-Mountain-Refresh: 1` header and an empty body with no transfer encoding. The service sends no CORS headers. A valid request returns 202 and queues a batch on the single scheduled worker. A concurrent manual request or disabled collection returns 409. The 60-second server-wide request cooldown returns 429 with `Retry-After`. An unavailable collector returns 503.
+- **`POST /v1/refresh`** requires an exact same-origin `Origin` matching the `Host` and configured HTTP or HTTPS scheme, the `X-Mountain-Refresh: 1` header and an empty body with no transfer encoding. The service sends no CORS headers. A valid request returns 202 and queues a batch on the single scheduled worker. A concurrent manual request or disabled collection returns 409. The 60-second server-wide request cooldown returns 429 with `Retry-After`. An unavailable collector returns 503.
 
 The scheduler checks each enabled source in order. A manual batch can advance a healthy Open-Meteo product at least 60 seconds after its last check, or the DriveBC still after at least 15 minutes. Nelson and the Whitewater station table keep their one-hour minimum. The Whitewater snow report keeps its two-hour minimum. Existing retry due times and provider controls take precedence. A named per-source outcome explains skips. During refresh and recoverable failures, the last usable snapshot keeps its original valid times.
 
@@ -78,4 +78,6 @@ python -B -m unittest discover -s poc/tests -v
 CHROMIUM_PATH=/usr/bin/chromium python -B -m unittest discover -s tests -v
 ```
 
-The service and browser suites use synthetic data over loopback and uses temporary databases outside the repository. They cover malformed and missing data, forecast horizons, multiple crossings, transport and provider stops, stale cache, camera revisions and expiry, the daily budget across restart and UTC rollover, retention, and online backup/restore.
+The service and browser suites use synthetic data over loopback and create temporary databases outside the repository. They cover malformed and missing data, forecast horizons, multiple crossings, transport and provider stops, stale cache, camera revisions and expiry, the daily budget across restart and UTC rollover, retention, and online backup/restore.
+
+Set `NGINX_PATH` to a supported Nginx executable to also exercise the Pi proxy templates on development loopback with synthetic Host and Origin values. This check covers both listeners, rejected LAN sources, and refresh request validation. Tailscale, firewall and systemd runtime acceptance are Pi checks.

@@ -24,6 +24,10 @@ COLLECTABLE = {**SOURCES, DRIVEBC.key: DRIVEBC}
 PROVIDERS = sorted({source.provider for source in COLLECTABLE.values()})
 
 
+class DatabaseInUse(ValueError):
+    pass
+
+
 def private_path(value):
     path = Path(value).expanduser().resolve()
     if path.is_relative_to(REPOSITORY):
@@ -37,7 +41,7 @@ def service_lock(path):
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            raise ValueError("A service or maintenance command already owns this database") from exc
+            raise DatabaseInUse("A service or maintenance command already owns this database") from exc
         yield
 
 
@@ -143,7 +147,10 @@ def main():
             with service_lock(target):
                 store.copy_database(private_path(args.source), target)
     except (FetchError, OSError, sqlite3.Error, ValueError) as exc:
-        logging.error("%s: %s", args.command, exc)
+        if args.command == "serve" and not isinstance(exc, DatabaseInUse):
+            logging.error("Service startup failed (%s)", type(exc).__name__)
+        else:
+            logging.error("%s: %s", args.command, exc)
         return 1
     return 0
 

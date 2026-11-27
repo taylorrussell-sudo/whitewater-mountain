@@ -156,8 +156,7 @@ class LocalAPI(ThreadingHTTPServer):
         hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
         if port == 80:
             hosts.update(("127.0.0.1", "localhost"))
-        self.origins = dict.fromkeys(hosts)
-        self.origins.update((origin.split("://", 1)[1], origin) for origin in origins)
+        self.origins = {origin.split("://", 1)[1]: origin for origin in origins}
         self.origins.update((host, "http://" + host) for host in hosts)
 
     def handle_error(self, request, client_address):

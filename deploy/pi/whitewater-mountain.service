@@ -1,0 +1,42 @@
+# Proposed template. Review all absolute paths, the user and the limits before installation.
+[Unit]
+Description=Whitewater Mountain private dashboard
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=4
+
+[Service]
+Type=exec
+User=whitewater-mountain
+Group=whitewater-mountain
+WorkingDirectory=/opt/whitewater-mountain/current
+EnvironmentFile=/etc/whitewater-mountain/service.env
+ExecStart=/usr/bin/python3 -EsB -m mountain_service serve --db ${MOUNTAIN_DB} --port ${MOUNTAIN_API_PORT} $MOUNTAIN_EDGE_ARGS $MOUNTAIN_COLLECT_ARGS
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=40s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/whitewater-mountain
+MemoryHigh=96M
+MemoryMax=160M
+TasksMax=32
+CPUWeight=25
+CPUQuota=50%
+LimitFSIZE=32M
+LogRateLimitIntervalSec=60s
+LogRateLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target
