@@ -1,4 +1,4 @@
-# Whitewater Mountain Conditions — v0.3.2.1
+# Whitewater Mountain Conditions — v0.3.2.2
 
 The private Python/SQLite service serves the existing dashboard with ECMWF IFS HRES, Canadian HRDPS, measured Nelson CS temperatures and derived NOAA GFS freezing levels. This independent household dashboard includes a static simulation for design review and regression testing.
 
@@ -11,7 +11,9 @@ state_dir=$(mktemp -d)
 python -B -m mountain_service serve --db "$state_dir/mountain.sqlite"
 ```
 
-Open `http://127.0.0.1:8765` for the private dashboard. Collection defaults to disabled. Use repeated `--collect` flags for explicitly authorized sources. The development [service guide](mountain_service/README.md) lists source keys, refresh behavior and cache operations. Add `--collect drivebc_whitewater` to enable the attributed Highway 6 junction still in Overview and Webcams. Resort images remain available through their official links. Refresh Data can advance up to six weather batches per UTC day and checks the camera when eligible. The status line shows the remaining weather budget.
+Open `http://127.0.0.1:8765` for the private dashboard. Collection defaults to disabled. Use repeated `--collect` flags for explicitly authorized sources. The development [service guide](mountain_service/README.md) lists source keys, refresh behavior and cache operations. Add `--collect drivebc_whitewater` to enable the attributed Highway 6 junction still in Overview and Webcams. For private operation, add `--collect whitewater --collect whitewater_weather` to enable the resort snow report and mountain observations. Resort images are available through the five official links. Refresh Data can advance up to six weather batches per UTC day and checks the camera when eligible. The status line shows the remaining weather budget.
+
+The [synthetic visual review](review/v0.3.2.2/README.md) includes wall, phone and webcam screenshots with text descriptions.
 
 ## Automated regression checks
 
@@ -35,7 +37,7 @@ The intended architecture is a lightweight local service with independent server
 
 ## Next steps
 
-The isolated v0.3.0 proof of concept tests a Python/SQLite data path with synthetic inputs. Its one-shot live probes verified Open-Meteo lodge and valley forecasts and ECCC Nelson CS temperatures. The source review documents Canadian GEM and ECMWF coverage and the Southridge and Redfish Creek alternatives. Whitewater automated collection remains disabled pending written clarification. The v0.3.3 milestone covers approved private deployment, recovery verification and Pages retirement. Summer mode is deferred. [Data source validation](DATA_SOURCES.md) · [PoC reproduction and architecture](poc/README.md)
+The isolated v0.3.0 proof of concept tests a Python/SQLite data path with synthetic inputs. Its one-shot live probes verified Open-Meteo lodge and valley forecasts and ECCC Nelson CS temperatures. The source review documents Canadian GEM and ECMWF coverage and the Southridge and Redfish Creek alternatives. Whitewater numerical collection is opt-in for household use under the owner’s decision. See the data source notes for unresolved terms and clock conventions. The v0.3.3 milestone covers approved private deployment, recovery verification and Pages retirement. Summer mode is deferred. [Data source validation](DATA_SOURCES.md) · [PoC reproduction and architecture](poc/README.md)
 
 ## Logic
 In the static dashboard’s six scenarios, simulated daily snow totals are distributed uniformly over hourly bins for illustrative rolling 24-hour forecast windows (starts 0–48 hours inclusive). Actual alerts use the last 24h; forecast alerts use the maximum 24h total ending within 72h. Values are illustrative, not a calibrated forecast. Real data needs hourly timing, model provenance and validation. Alert levels: 0–4, 5–9, 10–14, 15–24, 25–39, 40+ cm. A qualitative powder interpretation is scenario-defined rather than a numerical scientific score. No safety rating is computed from powder conditions.

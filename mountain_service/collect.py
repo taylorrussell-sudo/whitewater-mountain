@@ -11,7 +11,8 @@ from threading import Event, Lock
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from . import cameras, store
+from . import cameras, store, whitewater
+from .sources import RESORT_SOURCES
 
 MAX_BODY = 1024 * 1024
 HTTP_TIMEOUT = 8
@@ -49,7 +50,7 @@ class NoRedirect(HTTPRedirectHandler):
 
 def fetch_body(url, accepted_types, limit):
     request = Request(url, headers={
-        "User-Agent": "Whitewater Mountain Dashboard/0.3.2.1 (private household)",
+        "User-Agent": "Whitewater Mountain Dashboard/0.3.2.2 (private household)",
         "Accept": ", ".join(accepted_types),
     })
     try:
@@ -99,21 +100,26 @@ def fetch_json(url):
         raise FetchError("invalid_json", "interval") from None
 
 
+def fetch_html(url):
+    return fetch_body(url, ("text/html",), MAX_BODY)
+
+
 def sample(source, start, clock, fetch):
     payload = fetch(source.url(start))
     try:
         return source.normalize(payload, datetime.fromtimestamp(clock(), timezone.utc))
-    except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
+    except (ValueError, KeyError, TypeError, AttributeError, OverflowError, RecursionError):
         raise FetchError("unexpected_schema", "interval") from None
 
 
 class Collector:
     def __init__(self, path, sources, clock=time.time, fetch=fetch_json, monotonic=time.monotonic,
-                 fetch_image=None):
+                 fetch_image=None, fetch_resort=fetch_html):
         self.path = path
         self.sources = sources
         self.clock = clock
         self.fetch = fetch
+        self.fetch_resort = fetch_resort
         self.fetch_image = fetch_image or (lambda url: fetch_body(url, ("image/jpeg",), cameras.MAX_IMAGE))
         self.camera_frame = None
         self.next_prune = 0
@@ -193,6 +199,12 @@ class Collector:
                     if not store.charge_manual_weather(db, day, DAILY_WEATHER_REFRESHES):
                         return "weather_budget_exhausted"
                     charged_days.add(day)
+        is_resort = source.provider == whitewater.PROVIDER
+        if is_resort:
+            for other in RESORT_SOURCES:
+                last = store.state(db, other.key)
+                if last and now < last["checked"] + whitewater.CRAWL_DELAY:
+                    return "provider_spacing"
         data = None
         error = None
         cooldown = None
@@ -204,14 +216,14 @@ class Collector:
                 payload = self.fetch(cameras.METADATA_URL)
                 data = cameras.update(payload, self.camera_frame, int(self.clock()), self.fetch_image)
             else:
-                data = sample(source, start, self.clock, self.fetch)
+                data = sample(source, start, self.clock, self.fetch_resort if is_resort else self.fetch)
             if data is None:
                 error = "no_data"
         except cameras.InvalidCamera as exc:
             error = str(exc)
         except FetchError as exc:
             error = exc.code
-            if exc.policy == "retry" and source.kind != "camera":
+            if exc.policy == "retry" and source.kind != "camera" and not is_resort:
                 failures = min((previous["failures"] if previous else 0) + 1, 12)
                 delay = min(source.interval, 60 * (2 ** (failures - 1)))
             elif exc.policy == "stop":
