@@ -1,3 +1,3 @@
 # Latest handoff
 
-[Pre-v0.3.3 Whitewater webcam integration review](2026-11-26_1801_v0-3-3-webcam-review.md)
+[v0.3.3 private Raspberry Pi deployment package](2026-11-26_1904_v0-3-3-private-pi-package.md)
