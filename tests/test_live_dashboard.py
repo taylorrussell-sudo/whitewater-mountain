@@ -198,6 +198,21 @@ class LiveDashboardTest(unittest.TestCase):
         expect(page.locator("#cameragrid img")).to_have_count(1)
         expect(page.locator("#cameragrid")).to_contain_text("Weather Stick")
         page.set_viewport_size({"width": 390, "height": 844})
+        gallery_url = "https://whitewatermountainresort.com/webcams/"
+        gallery = page.get_by_role("link", name="Open Whitewater webcam gallery (new tab)")
+        expect(gallery).to_have_attribute("href", gallery_url)
+        self.assertGreaterEqual(gallery.bounding_box()["height"], 44)
+        page.context.route(gallery_url, lambda route: route.fulfill(body="Official gallery fixture"))
+        gallery.focus()
+        with page.expect_popup() as new_tab:
+            page.keyboard.press("Enter")
+        popup = new_tab.value
+        self.addCleanup(popup.close)
+        expect(popup.locator("body")).to_have_text("Official gallery fixture")
+        self.assertEqual(popup.url, gallery_url)
+        self.assertTrue(popup.evaluate("window.opener === null && document.referrer === ''"))
+        expect(page.locator("#webcams")).to_be_visible()
+
         page.locator("#road-camera [data-enlarge]").click()
         modal.get_by_role("button", name="Close").click()
         expect(modal).to_be_hidden()

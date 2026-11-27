@@ -1,5 +1,10 @@
 # Changelog
 
+## Pre-v0.3.3 webcam review (proposed) — 2026-11-26
+
+- Add a new-tab link to the official Whitewater gallery in the private Webcams tab. Retain the five individual resort image shortcuts and the licensed DriveBC junction view.
+- Record browser policy, display terms, freshness and resource trade-offs for the four viewing options. [Webcam review](DATA_SOURCES.md#whitewater-webcam-integration-review-before-v033)
+
 ## v0.3.2.2 (proposed) — 2026-11-26
 
 - Document the owner’s private household use decision and unresolved Whitewater site terms. Add opt-in numerical collection from the official snow report and mountain station tables, with two-hour and one-hour minimum request intervals.
