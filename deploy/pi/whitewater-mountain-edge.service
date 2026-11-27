@@ -1,0 +1,38 @@
+# Optional isolated Nginx. Review binary and config paths before use.
+[Unit]
+Description=Whitewater Mountain private network ingress
+Wants=network-online.target whitewater-mountain.service
+After=network-online.target whitewater-mountain.service
+StartLimitIntervalSec=120
+StartLimitBurst=4
+
+[Service]
+Type=exec
+DynamicUser=yes
+RuntimeDirectory=whitewater-mountain-edge
+ExecStartPre=/usr/sbin/nginx -t -c /etc/whitewater-mountain/nginx.conf
+ExecStart=/usr/sbin/nginx -c /etc/whitewater-mountain/nginx.conf
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryHigh=24M
+MemoryMax=48M
+TasksMax=8
+CPUWeight=25
+CPUQuota=25%
+LimitFSIZE=1M
+LogRateLimitIntervalSec=60s
+LogRateLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target

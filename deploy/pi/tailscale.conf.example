@@ -1,0 +1,10 @@
+# Optional. Tailscale Serve terminates HTTPS and proxies to this loopback port.
+server {
+    listen 127.0.0.1:8781;
+    server_name replace-me.example.invalid;
+    if ($http_host != "replace-me.example.invalid") { return 403; }
+
+    allow 127.0.0.1;
+    deny all;
+    include /etc/whitewater-mountain/proxy.conf;
+}

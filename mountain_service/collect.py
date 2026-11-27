@@ -11,7 +11,7 @@ from threading import Event, Lock
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from . import cameras, store, whitewater
+from . import __version__, cameras, store, whitewater
 from .sources import RESORT_SOURCES
 
 MAX_BODY = 1024 * 1024
@@ -50,7 +50,7 @@ class NoRedirect(HTTPRedirectHandler):
 
 def fetch_body(url, accepted_types, limit):
     request = Request(url, headers={
-        "User-Agent": "Whitewater Mountain Dashboard/0.3.2.2 (private household)",
+        "User-Agent": f"Whitewater Mountain Dashboard/{__version__} (private household)",
         "Accept": ", ".join(accepted_types),
     })
     try:
@@ -253,7 +253,7 @@ class Collector:
             except Exception:
                 cycle_failed = True
                 failed.set()
-                logging.exception("Collection cycle failed")
+                logging.error("Collection cycle failed")
             else:
                 failed.clear()
             finally:

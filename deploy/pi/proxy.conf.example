@@ -1,0 +1,15 @@
+# Shared location snippet. Match the upstream port to MOUNTAIN_API_PORT.
+location / {
+    limit_conn mountain_connections 8;
+    # Refresh accepts an empty request, including at the edge before any
+    # HTTP framing could be changed by proxying.
+    if ($http_transfer_encoding != "") { return 400; }
+    if ($content_length !~ "^(0)?$") { return 400; }
+    proxy_set_header Host $http_host;
+    # Origin is forwarded unchanged. Python validates it against the exact Host.
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 5s;
+    proxy_send_timeout 5s;
+    proxy_buffering off;
+    proxy_pass http://127.0.0.1:8765;
+}

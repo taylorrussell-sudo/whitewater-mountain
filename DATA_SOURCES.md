@@ -14,6 +14,10 @@ The v0.2.1 dashboard is simulated. The v0.3.0 proof of concept (PoC) uses synthe
 | [DriveBC highway cameras](https://open.canada.ca/data/en/dataset/6b39a910-6c77-476f-ac96-7b4f18849b1c) | Highway 6 junction camera 759 is eligible for attributed private use. Nelson south and Ymir remain official links. |
 | [Avalanche Canada](https://avalanche.ca/), [Nelson Nordic](https://nelsonnordicski.ca/conditions) | Deferred to v0.4. Verify rights and source semantics. Expired or missing official avalanche information is unavailable. |
 
+## Private installation activation
+
+The v0.3.3 templates start with every source disabled. Record the owner's explicit continuous-use decisions in the private operations handoff, then pass approved source keys individually through `--collect`. Confirm cache and backup retention before enabling sources. The Whitewater household decision applies to factual snow and station data. Resort webcam links, the eligible DriveBC still and deferred sources keep their documented policies. [Activation procedure](deploy/pi/README.md#4-activate-collection-explicitly)
+
 ## Whitewater webcam integration review before v0.3.3
 
 On 2026-11-27 around 00:58 UTC, one-off HTTPS GETs from the development environment returned HTTP 200 for the resort gallery, the Lodge JPEG and the Lodge time-lapse GIF. The gallery HTML listed five camera stills and five time-lapses. Section 2 of the resort terms restricts display of site content and requires written permission for specified uses of downloaded material. The household decision about factual weather measurements applies to measurements only. Browser access to the public assets does not establish permission to show them inside the dashboard. [Official gallery](https://whitewatermountainresort.com/webcams/) · [Resort terms, section 2](https://whitewatermountainresort.com/terms-of-use/)
