@@ -1,3 +1,3 @@
 # Latest handoff
 
-[v0.3.2.2 private Whitewater measurements](2026-11-26_1702_v0-3-2-2-whitewater.md)
+[Pre-v0.3.3 Whitewater webcam integration review](2026-11-26_1801_v0-3-3-webcam-review.md)
