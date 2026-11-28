@@ -1,3 +1,3 @@
 # Latest handoff
 
-[v0.3.4 deployment reliability and documentation](2026-11-27_1939_v0-3-4-deployment-reliability.md)
+[v0.3.4 firewall parity and upgrade verification](2026-11-27_2249_v0-3-4-firewall-parity.md)
