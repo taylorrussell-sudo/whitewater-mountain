@@ -1,6 +1,6 @@
 # Mountain Dashboard requirements
 
-Status — v0.3.3 proposes the private Pi installation package for review. The public v0.2.1 prototype remains simulated.
+Status — v0.3.4 proposes deployment reliability and runbook updates for the private Pi installation. The public v0.2.1 prototype remains simulated.
 
 ## Core winter experience
 - Whitewater-centric overview with five internal tabs: Overview, Powder, Webcams, Avalanche, Info. Main wall application eventually includes Mountain alongside Calendar, Home, Music and Lists.
@@ -40,5 +40,6 @@ Status — v0.3.3 proposes the private Pi installation package for review. The p
 
 - Use immutable reviewed releases, a dedicated service account and a separate persistent state directory on verified NVMe. Run the Python service under systemd with bounded resources and boot startup. Measure Chromium and service impact on the Pi 5 with Calendar, Home Assistant and Music Assistant running.
 - Keep the API on IPv4 loopback. Private ingress requires a verified household LAN binding and subnet and optionally authenticated, restricted Tailscale Serve. Require an exact approved Host and Origin for refresh and verify isolation from guest and public clients.
-- Default every source to disabled. Enable sources individually after approval and keep per-provider cadence, backoff and manual-refresh limits.
-- Verify SQLite-consistent snapshots, restore into a fresh database and exercise release rollback. Verify retention, coverage and actual recovery on the Pi after approval. Keep the standalone simulation and existing Pages preview until private operation is verified and retirement is approved. [Deployment runbook](deploy/pi/README.md)
+- Default every source to disabled on fresh installs. Enable sources individually after approval and keep per-provider cadence, backoff and manual-refresh limits. Preserve the installed settings, source opt-ins, SQLite state, firewall configuration and boot enablement on routine upgrades.
+- Reserve the LAN address in DHCP, verify HTTP readiness with bounded retries, and check automatic startup and ingress after reboot. If using the optional Mountain firewall, load its table before starting the LAN edge and preserve unrelated host rules.
+- Keep a minimal encrypted backup of installed app configuration, release identification and systemd units. Exclude application code and runtime data. For approved SQLite recovery drills, use checked snapshots and restore to a fresh path. Verify release rollback and actual recovery on the Pi after approval. Keep the standalone simulation and existing Pages preview until private operation is verified and retirement is approved. [Deployment runbook](deploy/pi/README.md)

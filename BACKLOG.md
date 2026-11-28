@@ -18,7 +18,9 @@
 - [x] v0.3.2.2 proposed for review. Add private opt-in factual Whitewater collection, reported snowfall alerts, station conditions and measured inversion. Verify five official camera links.
 - [x] Complete the pre-v0.3.3 webcam review. Add a new-tab link to the official gallery in the private Webcams tab. [Compatibility and terms](DATA_SOURCES.md#whitewater-webcam-integration-review-before-v033)
 - [x] Prepare the v0.3.3 package for review with versioned installation, systemd, private ingress, monitoring, recovery and staged acceptance. [Pi runbook](deploy/pi/README.md)
-- [ ] After approval, verify actual Pi paths, ports and network boundaries, then install and verify boot, household access, existing-service health, resources and targeted recovery. Verify backup coverage and optional authenticated remote access under separate approval. Retire simulated Pages only after private hosting is verified and retirement is approved.
+- [x] The owner reported that the existing Pi installation passed network security, refresh validation, automatic startup, reboot recovery and encrypted configuration backup verification.
+- [x] Prepare v0.3.4 for review with the ARM64 Nginx zone fix, optional app-scoped LAN firewall and updated operations runbook.
+- [ ] After approval, apply the v0.3.4 package and repeat its Pi acceptance gates, including ARM64 Nginx startup, boot ordering, ingress isolation and rollback. Verify any optional authenticated remote access under separate approval. Retire simulated Pages only after separate approval.
 - [ ] Reassess in-dashboard Whitewater webcam display when the resort provides an embedding policy or written permission. Confirm supported origins, cadence, camera clocks and seasonal availability.
 - [ ] v0.4: validate Nordic and DriveBC road reports, Avalanche Canada region/API and expiry semantics before real ratings. Family/physical-device acceptance and wall navigation integration.
 

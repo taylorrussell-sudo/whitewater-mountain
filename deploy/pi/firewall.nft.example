@@ -1,0 +1,19 @@
+# LAN edge only. Replace all four example values together with lan.conf.
+define lan_interface = "replace-me"
+define lan_subnet = 192.0.2.0/24
+define lan_address = 192.0.2.10
+define edge_port = 8780
+
+# Replace only this app's table in one transaction, whether or not it exists.
+add table inet whitewater_mountain
+delete table inet whitewater_mountain
+
+table inet whitewater_mountain {
+    chain edge_input {
+        type filter hook input priority filter - 10; policy accept;
+
+        iifname "lo" tcp dport $edge_port accept
+        iifname $lan_interface ip saddr $lan_subnet ip daddr $lan_address tcp dport $edge_port accept
+        tcp dport $edge_port drop
+    }
+}

@@ -22,6 +22,7 @@ http {
     uwsgi_temp_path /run/whitewater-mountain-edge/uwsgi;
     scgi_temp_path /run/whitewater-mountain-edge/scgi;
 
-    limit_conn_zone $server_port zone=mountain_connections:64k;
+    # Use 1 MiB so this also starts on ARM64 kernels with 16 KiB pages.
+    limit_conn_zone $server_port zone=mountain_connections:1m;
     include /etc/whitewater-mountain/ingress/*.conf;
 }

@@ -1,4 +1,4 @@
-# Private mountain weather service v0.3.3 (proposed)
+# Private mountain weather service v0.3.4 (proposed)
 
 The service requires Python 3.10+ on Linux and uses Python's standard library and SQLite. It listens on IPv4 loopback. Open the service URL for the private dashboard. Opening the repository’s static index directly runs the standalone simulation.
 
@@ -68,7 +68,7 @@ python -B -m mountain_service restore "$state_dir/backup.sqlite" "$state_dir/rec
 python -B -m mountain_service serve --db "$state_dir/recovered.sqlite" --port 8766
 ```
 
-SQLite records camera check status and the weather budget. It keeps seven days of prior budget rows and the current day. Camera bytes live in memory and are excluded from SQLite and backups. The backup reads committed SQLite state, including committed WAL pages. It validates database identity, SQLite integrity and foreign keys, then publishes a standalone owner-only file. Restore copies and validates into a new file and refuses an existing destination or orphaned SQLite sidecars. Use the recovered path after verifying it by starting the service with collection off and checking the API. Preserve the previous database for rollback. Never copy only the raw database file while the service is writing. Keep backup copies private and expire them on a schedule that preserves the source retention limits. Production encrypted backup coverage, final paths, and recovery on the Pi need separate verification.
+SQLite records camera check status and the weather budget. It keeps seven days of prior budget rows and the current day. Camera bytes live in memory and are excluded from SQLite and backups. The backup reads committed SQLite state, including committed WAL pages. It validates database identity, SQLite integrity and foreign keys, then publishes a standalone owner-only file. Restore copies and validates into a new file and refuses an existing destination or orphaned SQLite sidecars. Use the recovered path after verifying it by starting the service with collection off and checking the API. Preserve the previous database for rollback. Never copy only the raw database file while the service is writing. Keep backup copies private and expire them on a schedule that preserves the source retention limits. The minimal encrypted configuration backup excludes database snapshots. Confirm paths, coverage and actual recovery for each approved update. [Pi backup runbook](../deploy/pi/README.md#6-backup-and-restore)
 
 ## Development checks
 
@@ -80,4 +80,4 @@ CHROMIUM_PATH=/usr/bin/chromium python -B -m unittest discover -s tests -v
 
 The service and browser suites use synthetic data over loopback and create temporary databases outside the repository. They cover malformed and missing data, forecast horizons, multiple crossings, transport and provider stops, stale cache, camera revisions and expiry, the daily budget across restart and UTC rollover, retention, and online backup/restore.
 
-Set `NGINX_PATH` to a supported Nginx executable to also exercise the Pi proxy templates on development loopback with synthetic Host and Origin values. This check covers both listeners, rejected LAN sources, and refresh request validation. Tailscale, firewall and systemd runtime acceptance are Pi checks.
+Set `NGINX_PATH` to a supported Nginx executable to also exercise the Pi proxy templates on development loopback with synthetic Host and Origin values. This check covers both listeners, rejected LAN sources, and refresh request validation. The suite also guards the zone size required for 16 KiB pages and the firewall rule order, installed filenames and static unit wiring. Actual 16 KiB startup, firewall enforcement, systemd runtime ordering and Tailscale acceptance are Pi checks.
