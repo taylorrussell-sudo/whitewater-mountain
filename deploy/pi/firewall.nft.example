@@ -10,9 +10,10 @@ delete table inet whitewater_mountain
 
 table inet whitewater_mountain {
     chain edge_input {
-        type filter hook input priority filter; policy accept;
+        type filter hook input priority filter - 10; policy accept;
 
+        iifname "lo" tcp dport $edge_port accept
         iifname $lan_interface ip saddr $lan_subnet ip daddr $lan_address tcp dport $edge_port accept
-        tcp dport $edge_port reject with tcp reset
+        tcp dport $edge_port drop
     }
 }

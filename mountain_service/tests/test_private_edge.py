@@ -19,6 +19,17 @@ class DeploymentTemplateTest(unittest.TestCase):
         config = (TEMPLATES / "nginx.conf.example").read_text()
         self.assertRegex(config, r"(?m)^\s*limit_conn_zone \$server_port zone=mountain_connections:1m;\s*$")
 
+    def test_mountain_firewall_allows_loopback_and_lan_before_dropping_other_ingress(self):
+        ruleset = (TEMPLATES / "firewall.nft.example").read_text()
+        chain = ruleset.split("chain edge_input {", 1)[1].split("}", 1)[0]
+        rules = [" ".join(line.split()) for line in chain.splitlines() if line.strip()]
+        self.assertEqual(rules, [
+            "type filter hook input priority filter - 10; policy accept;",
+            'iifname "lo" tcp dport $edge_port accept',
+            "iifname $lan_interface ip saddr $lan_subnet ip daddr $lan_address tcp dport $edge_port accept",
+            "tcp dport $edge_port drop",
+        ])
+
     def test_edge_orders_and_binds_static_firewall(self):
         unit_name = "whitewater-mountain-firewall.service"
         firewall = ConfigParser(interpolation=None)
@@ -27,8 +38,13 @@ class DeploymentTemplateTest(unittest.TestCase):
         self.assertEqual(firewall["Service"]["Type"], "oneshot")
         self.assertTrue(firewall["Service"].getboolean("RemainAfterExit"))
 
+        self.assertEqual(
+            firewall["Service"]["ExecStart"],
+            "/usr/sbin/nft -f /etc/whitewater-mountain/firewall.nft",
+        )
+
         drop_in = ConfigParser(interpolation=None)
-        drop_in.read(TEMPLATES / "whitewater-mountain-edge.service.d" / "10-firewall.conf")
+        drop_in.read(TEMPLATES / "whitewater-mountain-edge.service.d" / "firewall.conf")
         self.assertIn(unit_name, drop_in["Unit"]["BindsTo"].split())
         self.assertIn(unit_name, drop_in["Unit"]["After"].split())
 

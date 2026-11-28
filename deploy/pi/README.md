@@ -17,7 +17,7 @@ Record actual paths, ports, firewall rules, access decisions, service baselines,
 
 ## 2. Install the release and start locally
 
-All values below are examples. Substitute the verified account, paths and ports everywhere, including the unit, environment and proxy files. Keep absolute data and configuration paths outside all release trees. Use paths without spaces in these templates.
+All values below are examples. Substitute the verified account, paths and ports everywhere, including the unit, environment and proxy files. Keep absolute data and configuration paths outside all release trees. Use paths without spaces in these templates. For an existing installation, follow the upgrade steps in section 7.
 
 | Purpose | Example | Ownership and mode |
 | --- | --- | --- |
@@ -26,18 +26,17 @@ All values below are examples. Substitute the verified account, paths and ports 
 | Persistent SQLite and lock files | `/var/lib/whitewater-mountain` | dedicated service UID/GID, directory 0700 |
 | Service settings | `/etc/whitewater-mountain/service.env` | root-owned 0600, read by systemd |
 | Edge configuration | `/etc/whitewater-mountain/nginx.conf` and `ingress/` | root-owned, read-only to dynamic proxy user, directory 0755 and files 0644 |
-| Optional LAN firewall | `/etc/whitewater-mountain/mountain-firewall.nft` | root-owned 0600, read by the firewall unit |
+| Optional LAN firewall | `/etc/whitewater-mountain/firewall.nft` | root-owned 0600, read by the firewall unit |
 | Backup restore drill and optional snapshot staging | verified separate directories | private 0700 and files 0600, app maintenance user access as needed |
 
-Create a dedicated system user and group with no login or home, after verifying the name is unused. With the merged, reviewed commit available in a trusted checkout, confirm its full SHA, version and provenance. Stage the small runtime tree with the operator account first. This example assumes a fresh install and an unused release path.
+### Stage a reviewed release
+
+With the merged, reviewed commit available in a trusted checkout, confirm its full SHA, version and provenance. Stage the runtime tree with the operator account first. Use an unused release path.
 
 ```sh
 # Set APPROVED_SHA to the reviewed full SHA before running.
 set -eu
 app=/opt/whitewater-mountain
-conf=/etc/whitewater-mountain
-state=/var/lib/whitewater-mountain
-account=whitewater-mountain
 sha=$(git rev-parse --verify "${APPROVED_SHA:?set reviewed SHA}^{commit}")
 short_sha=$(git rev-parse --short=12 "$sha")
 release="$app/releases/v0.3.4-$short_sha"
@@ -49,20 +48,43 @@ tar -xf "$staging/release.tar" -C "$staging/code"
 # Check it prints 0.3.4 before copying or switching.
 ```
 
+### Prepare directories for a fresh installation
+
+Verify the account name is unused before creating it. Reuse an existing account only if it is already assigned to this app.
+
 ```sh
-# Skip account creation only if the existing account is verified as this app's identity.
+conf=/etc/whitewater-mountain
+state=/var/lib/whitewater-mountain
+account=whitewater-mountain
 sudo useradd --system --user-group --no-create-home --shell /usr/sbin/nologin "$account"
 sudo install -d -m 0755 "$app" "$app/releases" "$conf"
 sudo install -d -o "$account" -g "$account" -m 0700 "$state"
+```
+
+### Copy the staged release
+
+```sh
 sudo mkdir -m 0755 "$release"
 sudo cp -R "$staging/code/." "$release/"
 sudo chmod -R a+rX,go-w "$release"
-# Use this two-step switch for installation, upgrade and rollback.
+```
+
+### Switch the active release
+
+Use this two-step switch for installation, upgrade and rollback. For an upgrade, stop the running app and edge as directed in section 7 before switching.
+
+```sh
 sudo ln -sT "$release" "$app/.current-next"
 sudo mv -Tf "$app/.current-next" "$app/current"
 ```
 
-Copy [service.env.example](service.env.example) as the private mode-0600 `service.env`. Keep both argument lists empty. Review [whitewater-mountain.service](whitewater-mountain.service), then install the rendered copy at the verified system unit location with mode 0644. Use `systemd-analyze verify` before installing. Run `sudo systemctl daemon-reload` and `sudo systemctl start whitewater-mountain.service`. An active unit can precede HTTP readiness. Run this bounded readiness check with the verified loopback URL before opening the dashboard, starting the edge or enabling boot startup.
+### Start a fresh installation
+
+Copy [service.env.example](service.env.example) as the private mode-0600 `service.env`. Keep both argument lists empty. Review [whitewater-mountain.service](whitewater-mountain.service), then install the rendered copy at the verified system unit location with mode 0644. Use `systemd-analyze verify` before installing. Run `sudo systemctl daemon-reload` and `sudo systemctl start whitewater-mountain.service`. Run the HTTP readiness check below before starting the edge or enabling boot startup.
+
+### Check HTTP readiness
+
+An active unit can precede HTTP readiness. Run this bounded check with the verified loopback URL.
 
 ```sh
 wait_for_health() {
@@ -80,7 +102,7 @@ wait_for_health() {
 wait_for_health http://127.0.0.1:8765/healthz
 ```
 
-The probe spends at most about 48 seconds on requests and waits. If it fails, stop the rollout and inspect the app unit and its journal locally. When it succeeds, confirm the dashboard loads, collection is off for a fresh installation, and the API listener is loopback-only. Enable boot startup with `sudo systemctl enable whitewater-mountain.service` and confirm with `systemctl is-enabled whitewater-mountain.service`.
+The probe spends at most about 48 seconds on requests and waits. If it fails, stop the rollout and inspect the app unit and its journal locally. When it succeeds, confirm the dashboard loads and the API listener is loopback-only. For a fresh installation, confirm collection is off, then enable boot startup with `sudo systemctl enable whitewater-mountain.service` and confirm with `systemctl is-enabled whitewater-mountain.service`.
 
 ## 3. Add private access in stages
 
@@ -92,18 +114,18 @@ Set `MOUNTAIN_EDGE_ARGS="--allow-origin http://192.0.2.10:8780"` using the actua
 
 From an allowed LAN client, reuse the bounded check with the LAN URL plus `/healthz`. The Pi’s wall browser can use the direct loopback API URL. Complete the ingress and refresh gates below before enabling the edge with `sudo systemctl enable whitewater-mountain-edge.service`. Check `systemctl is-enabled whitewater-mountain-edge.service`.
 
-**Optional Mountain LAN firewall.** Use these templates when the host needs separate app-scoped nftables rules. They use the host's existing nftables support and a dedicated port. Coordinate with the host firewall owner and confirm a whole-ruleset reload will preserve the app table. The LAN allow rule matches the interface, source IPv4 subnet, destination IPv4 address and TCP port. The next rule rejects other local input to that TCP port, including IPv6 and loopback. Reserve that port on all addresses and use distinct ports for the backend and the optional Tailscale loopback listener. Other traffic continues through the existing rules. An allow from Mountain's chain still needs to pass all other host firewall chains.
+**Optional Mountain LAN firewall.** Use these templates when the host needs separate app-scoped nftables rules. They use the host's existing nftables support and a dedicated port. Coordinate with the host firewall owner and confirm a whole-ruleset reload will preserve the app table. The input chain uses priority `filter - 10`. It allows loopback traffic to the dedicated TCP port and allows LAN traffic matching the configured interface, source IPv4 subnet, destination IPv4 address and port. It silently drops all other input to that TCP port, including IPv6 arriving on a non-loopback interface. Reserve that port on all addresses and use distinct ports for the backend and the optional Tailscale loopback listener. Other traffic continues through the existing rules. An allow from Mountain's chain still needs to pass all other host firewall chains.
 
-1. Keep the edge stopped while installing or changing the ingress rules. Render [mountain-firewall.nft.example](mountain-firewall.nft.example) to `/etc/whitewater-mountain/mountain-firewall.nft`, substituting all four values and matching the LAN site config. Confirm that any existing `inet whitewater_mountain` table belongs to this app. Check the transaction with `sudo /usr/sbin/nft -c -f /etc/whitewater-mountain/mountain-firewall.nft`.
-2. Install [whitewater-mountain-firewall.service](whitewater-mountain-firewall.service) and the [edge drop-in](whitewater-mountain-edge.service.d/10-firewall.conf) under `/etc/systemd/system/`, with the drop-in at `whitewater-mountain-edge.service.d/10-firewall.conf`. Verify the units with `sudo systemd-analyze verify /etc/systemd/system/whitewater-mountain-firewall.service /etc/systemd/system/whitewater-mountain-edge.service` and run `sudo systemctl daemon-reload`.
-3. Start the edge. Its `BindsTo=` and `After=` pull in the static firewall unit and order successful rule loading before Nginx starts. The firewall stays `active (exited)` and has no boot enablement of its own. Check `systemctl is-active whitewater-mountain-firewall.service` and `sudo /usr/sbin/nft list table inet whitewater_mountain`. Verify the permitted and rejected paths before enabling the edge. The rules are replaced in one transaction and the stop action removes only the Mountain table. Leave global firewall configuration and unrelated tables in place.
+1. Keep the edge stopped while installing or changing the ingress rules. Render [firewall.nft.example](firewall.nft.example) to `/etc/whitewater-mountain/firewall.nft`, substituting all four values and matching the LAN site config. Confirm that any existing `inet whitewater_mountain` table belongs to this app. Check the transaction with `sudo /usr/sbin/nft -c -f /etc/whitewater-mountain/firewall.nft`.
+2. Install [whitewater-mountain-firewall.service](whitewater-mountain-firewall.service) and the [edge drop-in](whitewater-mountain-edge.service.d/firewall.conf) under `/etc/systemd/system/`, with the drop-in at `whitewater-mountain-edge.service.d/firewall.conf`. Verify the units with `sudo systemd-analyze verify /etc/systemd/system/whitewater-mountain-firewall.service /etc/systemd/system/whitewater-mountain-edge.service` and run `sudo systemctl daemon-reload`.
+3. Start the edge. Its `BindsTo=` and `After=` pull in the static firewall unit and order successful rule loading before Nginx starts. The firewall stays `active (exited)` and has no boot enablement of its own. Check `systemctl is-active whitewater-mountain-firewall.service` and `sudo /usr/sbin/nft list table inet whitewater_mountain`. Verify the LAN edge URL from the Pi and an allowed LAN client. From an unauthorized client, verify a bounded connection attempt gets no reply. The firewall leaves Nginx listener and access settings in force. The rules are replaced in one transaction and the stop action removes only the Mountain table. Leave global firewall configuration and unrelated tables in place.
 4. To change or remove the Mountain rules, stop the edge first and stop the firewall unit before replacing files. Stopping the firewall through systemd also stops the bound edge, with reverse ordering. Start the edge again explicitly after updating the files, verifying the units and reloading systemd as needed. After any host firewall maintenance, verify the app table as well as unit status. systemd tracks the oneshot unit state and cannot detect rules removed by an external tool.
 
 **Optional Tailscale.** Render [tailscale.conf.example](tailscale.conf.example) into `ingress/` only after the private access gate is approved. Use the actual tailnet HTTPS host and a different, unused loopback edge port. Append `--allow-origin https://<verified-tailnet-host>` inside the existing `MOUNTAIN_EDGE_ARGS` quotes and restart only the two app units. Use the origin alone, with no trailing slash and no default port. Confirm the installed Serve preserves the HTTPS request Host and Origin. Verify tailnet grants restrict the selected HTTPS endpoint to approved users or devices. With a free, approved default HTTPS endpoint and a compatible CLI, the example is `sudo tailscale serve --bg http://127.0.0.1:8781`. Check `tailscale serve --help`, `tailscale serve status` and `tailscale funnel status` against the private baseline before and after. Use Serve at the root so dashboard routes remain same-origin. Use an explicitly approved alternate HTTPS port if necessary and include it in the Host and origin. Never enable Funnel, reset shared Serve state, or change another route. Record the exact route-specific off command before enabling Serve. For the exact default-port example it is `sudo tailscale serve --https=443 off`, only when this app is the sole owner of that HTTPS listener. [Tailscale Serve CLI](https://tailscale.com/kb/1242/tailscale-serve)
 
 ## 4. Activate collection explicitly
 
-After private ingress and recovery gates, add only approved keys in the service environment, as repeated `--collect SOURCE` arguments inside `MOUNTAIN_COLLECT_ARGS="..."`. Restart the Python service and verify provider states. For example, `MOUNTAIN_COLLECT_ARGS="--collect ifs --collect nelson_cs"` enables only the IFS forecast and Nelson observation. Other eligible keys are `hrdps`, `freezing_profile`, `drivebc_whitewater`, and, under the documented owner decision about factual measurements, `whitewater` and `whitewater_weather`. Review the latter two separately; their terms applicability and timestamps have open questions. Whitewater gallery and camera stills remain official links. Southridge, regional snow, and avalanche feeds have no collection flags. Remove the relevant flags and restart to disable sources. Existing cache material expires under its retention rules. [Cadences and backoff](../../mountain_service/README.md)
+On a fresh installation, after private ingress and recovery gates, add only approved keys in the service environment, as repeated `--collect SOURCE` arguments inside `MOUNTAIN_COLLECT_ARGS="..."`. Restart the Python service and verify provider states. For example, `MOUNTAIN_COLLECT_ARGS="--collect ifs --collect nelson_cs"` enables only the IFS forecast and Nelson observation. Other eligible keys are `hrdps`, `freezing_profile`, `drivebc_whitewater`, and, under the documented owner decision about factual measurements, `whitewater` and `whitewater_weather`. Review the latter two separately; their terms applicability and timestamps have open questions. Whitewater gallery and camera stills remain official links. Southridge, regional snow, and avalanche feeds have no collection flags. Remove the relevant flags and restart to disable sources. Existing cache material expires under its retention rules. [Cadences and backoff](../../mountain_service/README.md)
 
 ## 5. Monitor health, disk and diagnostics
 
@@ -121,7 +143,7 @@ Use the existing approved encrypted backup method. Take a configuration backup a
 | Include | What to record |
 | --- | --- |
 | Release identification | Repository locator, reviewed full commit SHA, CLI version, target of `current`, and the prior known-good SHA for rollback |
-| Installed deployment configuration | `service.env` (including source opt-ins), the active Nginx config and its included proxy and site files, and the rendered Mountain nftables file if used |
+| Installed deployment configuration | `service.env` (including source opt-ins), the active Nginx config and its included proxy and site files, and the rendered `firewall.nft` if used |
 | Installed systemd units | The app and optional edge/firewall units and all app-specific drop-ins. Record app and edge enablement, the service account and path ownership/modes, and how any approved app-specific ingress is restored. |
 
 Exclude reproducible application code and release trees, weather databases (including SQLite sidecars and snapshots), caches, images, logs, and host-wide configuration. Keep the archive, manifest and any private restore details outside the repository. Verify decryption, contents and permissions by restoring to a new private scratch directory before trusting the backup. Rebuild the release from its recorded SHA. Inspect and verify restored units and config, then start locally with collection off. If the state directory is lost, a new database starts without cache history, provider stops, cooldowns or the persisted daily budget. Check the private operating record for any provider blocks or retry windows and wait for the next UTC day before resuming collection after losing the budget.
@@ -142,17 +164,22 @@ Follow the source windows for stored data and backups. The live cache keeps fore
 
 ## 7. Update, roll back or remove
 
-Stage the reviewed SHA alongside the last known-good release using section 2. Confirm the previous link target, active database and unit enablement privately and refresh the encrypted configuration backup. v0.3.4 has no database schema migration. For a future schema change, check rollback compatibility first and rehearse with an approved local snapshot and collection off.
+### Upgrade an existing installation
 
-Stop the edge before changing its config, firewall or units. Stop the app, switch `current` atomically using section 2 and verify changed units before `sudo systemctl daemon-reload`. Start the app and run the loopback gate before starting any approved ingress. For a collector-disabled drill, clear the collection flags before starting and restore only previously approved flags after the gates pass. Avoid running duplicate collectors during the rollout.
+1. Record the current release target, configured source keys and SQLite path, firewall policy, and the app and edge's running state and boot enablement in the private operations handoff. Refresh the encrypted configuration backup. Use `systemctl is-enabled` for each installed app or edge unit to capture its existing boot setting.
+2. Stage and copy the reviewed release using [Stage a reviewed release](#stage-a-reviewed-release) and [Copy the staged release](#copy-the-staged-release). Keep the installed `service.env` with its existing source flags, origins and database path. Leave the SQLite database and its sidecars in the existing state directory. v0.3.4 has no schema migration. Keep the installed firewall rules and app-specific units and drop-ins in place. Use the optional firewall installation steps only for a separately approved firewall change.
+3. Stop the edge if it is running, then stop the app. Keep the existing firewall in place while the edge is down. [Switch the active release](#switch-the-active-release). If the dedicated Nginx config still has the old zone size, change only `mountain_connections` to `1m` in the installed config and keep the existing listeners and access rules.
+4. Start the app and [check HTTP readiness](#check-http-readiness). Verify the CLI version, configured source set and active SQLite path against the baseline. Start the edge if it was running before the upgrade and check the existing ingress paths. Leave boot enablement as recorded and check it again with `systemctl is-enabled`. Use `start` and `stop` for the rollout and leave the enablement links in place. Keep any intentionally stopped units in their prior runtime state. Run collector-disabled drills separately with a scratch database and configuration.
 
-To roll back, stop the edge and app, switch to the previous immutable release, and restore its compatible configuration, app-specific units and drop-ins. Keep the state directory in place for a schema-compatible rollback. If a future schema is incompatible, use a fresh path from a checked pre-update snapshot and retain the newer database. If rolling back the optional firewall, stop its unit while its stop command is still configured. Remove the drop-in and Mountain firewall unit only after securing the port with the previous host rules or leaving LAN ingress disabled. Verify units, reload systemd, then repeat loopback and private ingress gates and confirm the prior boot settings.
+### Roll back or remove
+
+To roll back, stop the edge and app, set `release` to the previous release target recorded before the upgrade, and repeat the [atomic switch](#switch-the-active-release). Restore any compatible configuration changed during the upgrade. Keep the state directory in place for a schema-compatible rollback. If a future schema is incompatible, use a fresh path from a checked pre-update snapshot and retain the newer database. If rolling back an approved change to the optional firewall, stop its unit while its stop command is still configured. Remove the drop-in and Mountain firewall unit only after securing the port with the previous host rules or leaving LAN ingress disabled. If any units or drop-ins changed, verify them and reload systemd. Repeat loopback and private ingress gates and confirm the prior boot settings.
 
 To back out an initial install, stop and disable the edge and app, stop the optional firewall unit and remove only this app’s optional Serve route. Restore the previous app-specific files and reload systemd. Preserve app data privately until its disposition is approved. Recheck Calendar, Home Assistant and Music Assistant.
 
 ## 8. Acceptance gates
 
-Use the real origin only for a gate the operator has approved. With collection still disabled, the following probes should give 409 (valid, with `no_enabled_sources`), 403 (foreign origin) and 400 (missing refresh header), respectively. Repeat from the client allowed at each private ingress. An out-of-scope client should fail to connect or get an ingress denial without receiving data. A preflight `OPTIONS` request from a foreign origin must receive no CORS permission.
+Use the real origin only for a gate the operator has approved. For a fresh installation or an isolated drill with collection disabled, the following probes should give 409 (valid, with `no_enabled_sources`), 403 (foreign origin) and 400 (missing refresh header), respectively. On an existing installation with sources enabled, use `GET /v1/refresh` for the status and budget check. Run the valid POST only for an intended refresh. Repeat from the client allowed at each private ingress. An out-of-scope client should fail to connect or get an ingress denial without receiving data. A preflight `OPTIONS` request from a foreign origin must receive no CORS permission.
 
 ```sh
 curl -i --max-time 5 -X POST -H "Origin: $ORIGIN" -H 'X-Mountain-Refresh: 1' "$ORIGIN/v1/refresh"
@@ -162,8 +189,8 @@ curl -i --max-time 5 -X POST -H "Origin: $ORIGIN" "$ORIGIN/v1/refresh"
 
 | Stage | Development verification | Physical Pi acceptance after approval |
 | --- | --- | --- |
-| Release and local startup | Verify CLI version, unit syntax, disabled-source launch, loopback health, dashboard and graceful exit | Verify the ARM64 package and NVMe paths. Record `getconf PAGESIZE` and confirm the dedicated Nginx starts with the 1 MiB zone on the 16 KiB kernel. Start with no collection, confirm every source is off, and confirm only loopback owns the Python port. |
-| Boot and firewall lifecycle | Check the unit wiring and Nginx template in development | Confirm the firewall rejects an invalid configuration with the edge down. With valid rules, confirm starting the edge brings up the static firewall and stopping the firewall stops the edge before the table is removed. Verify unrelated services and firewall rules remain intact. |
+| Release and local startup | Verify CLI version, unit syntax, disabled-source launch, loopback health, dashboard and graceful exit | Verify the ARM64 package and NVMe paths. Record `getconf PAGESIZE` and confirm the dedicated Nginx starts with the 1 MiB zone on the 16 KiB kernel. Confirm only loopback owns the Python port. For a fresh install, confirm collection is off. For an upgrade, compare the existing source flags, SQLite path, firewall policy and boot enablement with the baseline. |
+| Boot and firewall lifecycle | Check the firewall rule order, unit wiring and Nginx template in development | Confirm an invalid firewall configuration fails with the edge down. With valid rules, confirm starting the edge brings up the static firewall and stopping the firewall stops the edge before the table is removed. Verify unrelated services and firewall rules remain intact. |
 | Ingress and refresh | Exercise rendered Nginx over development loopback, including bad Host, cross-origin and malformed POST rejection | Household phone and wall can load dashboard and assets; guest and outside clients cannot. Confirm origin, empty-body and custom-header requirements and no CORS. Backend port is unreachable remotely. |
 | Optional remote gate | Exercise the second edge listener with the expected HTTPS Host and Origin through a local proxy stand-in | Approved signed-in tailnet client works; an unapproved tailnet identity and a non-tailnet internet client fail. Inspect Serve and Funnel state for this app. Test refresh through HTTPS. |
 | Recovery | Exercise online backup of committed WAL state, restore to a new path and start with sources off | Decrypt and inspect a configuration-only backup in private scratch space. Verify the pinned release and app-specific units can be restored and drill release pointer rollback. If separately approved, drill SQLite recovery with a fresh path. |
@@ -171,6 +198,6 @@ curl -i --max-time 5 -X POST -H "Origin: $ORIGIN" "$ORIGIN/v1/refresh"
 | Load and coexistence | Chromium checks wall and mobile layouts with synthetic weather | At 1920 × 1080 use physical touch to switch tabs, open webcam detail, and use Refresh Data. Check Overview fit, mobile touch, themes and keyboard focus. Compare RAM, CPU, disk and device responsiveness through a representative day of scheduled polling, after a reboot, and with family traffic. Recheck Calendar, Home Assistant and Music Assistant against the baseline after each stage. |
 | Sign-off | Keep the simulation and Pages assets in the repository | Record private operation, recovery and coexistence evidence. Seek separate approval before retiring simulated Pages. |
 
-**Reboot acceptance.** During the approved window, record the app and edge enablement and private access baseline before rebooting. After reboot, wait for the Pi to return without manually starting any app unit. Confirm the reserved LAN address, app and edge unit state, and the Mountain table if configured. Run the bounded loopback and permitted-client health checks. Repeat the denied-client and refresh checks on the approved paths and confirm any optional Serve mapping is still private. Verify the wall dashboard works and recheck unrelated services. Inspect the current boot's unit journal privately if any gate fails. Use the rollback procedure if service or isolation cannot be restored within the window.
+**Reboot acceptance.** During the approved window, record the app and edge enablement and private access baseline before rebooting. After reboot, wait for the Pi to return without manually starting any app unit. Confirm the reserved LAN address, recorded boot enablement, expected app and edge unit state, and the Mountain table if the edge uses it. Run the bounded health checks for the listeners expected to come up. Repeat the denied-client and refresh checks on active approved paths and confirm any optional Serve mapping is still private. Verify the wall dashboard works and recheck unrelated services. Inspect the current boot's unit journal privately if any gate fails. Use the rollback procedure if service or isolation cannot be restored within the window.
 
 See the release handoff for development results and limitations. [Latest handoff](../../handoffs/LATEST.md)

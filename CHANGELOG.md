@@ -3,8 +3,8 @@
 ## v0.3.4 (proposed) — 2026-11-27
 
 - Increase the standalone Nginx connection zone to 1 MiB for Raspberry Pi 5 ARM64 kernels with 16 KiB memory pages. Add a template regression and retain the development proxy smoke test.
-- Offer a dedicated nftables table for the private LAN edge and static systemd firewall ordering. Keep other firewall rules in place.
-- Document DHCP reservations, bounded readiness probes, boot and reboot gates, secure ingress, rollback and a minimal encrypted configuration backup. [Pi runbook](deploy/pi/README.md)
+- Offer a dedicated nftables table for the private LAN edge at priority `filter - 10`. Allow loopback and the configured LAN path, silently drop other traffic to the edge port, and order edge startup after the static firewall unit.
+- Document DHCP reservations, bounded readiness probes, boot and reboot gates, secure ingress, upgrades that preserve installed configuration and state, rollback and a minimal encrypted configuration backup. [Pi runbook](deploy/pi/README.md)
 
 ## v0.3.3 (merged) — 2026-11-26
 

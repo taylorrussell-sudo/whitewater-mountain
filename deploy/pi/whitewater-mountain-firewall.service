@@ -6,5 +6,5 @@ After=nftables.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/sbin/nft -f /etc/whitewater-mountain/mountain-firewall.nft
+ExecStart=/usr/sbin/nft -f /etc/whitewater-mountain/firewall.nft
 ExecStop=/usr/sbin/nft delete table inet whitewater_mountain
