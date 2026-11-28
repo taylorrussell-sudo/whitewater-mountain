@@ -16,7 +16,7 @@ The v0.2.1 dashboard is simulated. The v0.3.0 proof of concept (PoC) uses synthe
 
 ## Private installation activation
 
-The v0.3.3 templates start with every source disabled. Record the owner's explicit continuous-use decisions in the private operations handoff, then pass approved source keys individually through `--collect`. Confirm cache and backup retention before enabling sources. The Whitewater household decision applies to factual snow and station data. Resort webcam links, the eligible DriveBC still and deferred sources keep their documented policies. [Activation procedure](deploy/pi/README.md#4-activate-collection-explicitly)
+The v0.3.4 templates start with every source disabled. Record the owner's explicit continuous-use decisions in the private operations handoff, then pass approved source keys individually through `--collect`. Confirm cache and backup retention before enabling sources. The Whitewater household decision applies to factual snow and station data. Resort webcam links, the eligible DriveBC still and deferred sources keep their documented policies. [Activation procedure](deploy/pi/README.md#4-activate-collection-explicitly)
 
 ## Whitewater webcam integration review before v0.3.3
 

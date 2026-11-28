@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.3.3 (proposed) — 2026-11-26
+## v0.3.4 (proposed) — 2026-11-27
+
+- Increase the standalone Nginx connection zone to 1 MiB for Raspberry Pi 5 ARM64 kernels with 16 KiB memory pages. Add a template regression and retain the development proxy smoke test.
+- Offer a dedicated nftables table for the private LAN edge and static systemd firewall ordering. Keep other firewall rules in place.
+- Document DHCP reservations, bounded readiness probes, boot and reboot gates, secure ingress, rollback and a minimal encrypted configuration backup. [Pi runbook](deploy/pi/README.md)
+
+## v0.3.3 (merged) — 2026-11-26
 
 - Package a versioned Raspberry Pi install with dedicated systemd service and state, optional isolated household LAN and authenticated Tailscale Serve ingress, and explicit source opt-ins.
 - Keep the API on loopback and validate exact approved browser origins for private proxy refresh. Add proxy smoke tests and bound service resources.
