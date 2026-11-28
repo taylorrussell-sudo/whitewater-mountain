@@ -1,3 +1,3 @@
 # Latest handoff
 
-[v0.3.4 firewall parity and upgrade verification](2026-11-27_2249_v0-3-4-firewall-parity.md)
+[Whitewater Mountain v0.4.0 webcam follow-up](2026-11-28_0635_v0-4-0-whitewater-webcam-follow-up.md)

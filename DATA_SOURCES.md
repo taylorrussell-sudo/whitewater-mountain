@@ -10,13 +10,21 @@ The v0.2.1 dashboard is simulated. The v0.3.0 proof of concept (PoC) uses synthe
 | [ECCC GeoMet SWOB](https://api.weather.gc.ca/collections/swob-realtime?f=html) | Live Nelson CS temperatures verified. Recommended for the measured valley temperature. |
 | [BC automated snow network](https://open.canada.ca/data/en/dataset/3a34bdd1-61b2-4687-8b55-c5db5e13ff50) | Redfish Creek depth and SWE verified in provincial CSVs. Recommend catalogue-listed exports for regional snowpack context. |
 | [Southridge via Avalanche Canada](https://avalanche.ca/weather/stations/22) | Hourly provincial ridge observations verified via the public API. Recurring use is pending provider terms. |
-| [Whitewater webcams](https://whitewatermountainresort.com/webcams/) | The pre-v0.3.3 review selected top-level links to the gallery and five official stills. See the [integration review](#whitewater-webcam-integration-review-before-v033). |
+| [Whitewater webcams](https://whitewatermountainresort.com/webcams/) | Original synthetic stills for the five positions plus official links. Resort imagery display and automatic collection remain ineligible pending a supported, permitted method. See the [v0.4.0 review](#whitewater-webcam-integration-in-v040). |
 | [DriveBC highway cameras](https://open.canada.ca/data/en/dataset/6b39a910-6c77-476f-ac96-7b4f18849b1c) | Highway 6 junction camera 759 is eligible for attributed private use. Nelson south and Ymir remain official links. |
-| [Avalanche Canada](https://avalanche.ca/), [Nelson Nordic](https://nelsonnordicski.ca/conditions) | Deferred to v0.4. Verify rights and source semantics. Expired or missing official avalanche information is unavailable. |
+| [Avalanche Canada](https://avalanche.ca/), [Nelson Nordic](https://nelsonnordicski.ca/conditions) | Deferred. Verify rights and source semantics. Expired or missing official avalanche information is unavailable. |
 
 ## Private installation activation
 
-A fresh v0.3.4 installation starts with every source disabled. Upgrades retain the existing service settings and source opt-ins. Record the owner's explicit continuous-use decisions in the private operations handoff, then pass approved source keys individually through `--collect`. Confirm cache and backup retention before enabling sources. The Whitewater household decision applies to factual snow and station data. Resort webcam links, the eligible DriveBC still and deferred sources keep their documented policies. [Activation procedure](deploy/pi/README.md#4-activate-collection-explicitly)
+A fresh installation starts with every source disabled. Upgrades retain the existing service settings and source opt-ins. Record the owner's explicit continuous-use decisions in the private operations handoff, then pass approved source keys individually through `--collect`. Confirm cache and backup retention before enabling sources. The Whitewater household decision applies to factual snow and station data. Resort webcam links, the eligible DriveBC still and deferred sources keep their documented policies. [Activation procedure](deploy/pi/README.md#4-activate-collection-explicitly)
+
+## Whitewater webcam integration in v0.4.0
+
+The dashboard uses bundled original synthetic stills for Lodge, Summit, Glory, Summit Weather Station (snow plot), and Raven. The gallery links to the provider's official viewer and individual stills. It adds no upstream requests, source opt-ins, camera polling or storage of resort imagery. The existing licensed DriveBC camera keeps its independent cadence, attribution and cache policy.
+
+The official gallery renders the five linked stills and offers them for ordinary top-level viewing. One HEAD per still returned HTTP 200, JPEG metadata and ten-minute caching. A browser-side image tag would avoid collection and republication by the Mountain server. It would still display site content on the dashboard's own page, which Section 2 expressly restricts without a stated household exception. The camera host had no separate display terms at the paths checked. An HTTP response verifies access, while a distinct publisher policy or supported route could resolve display eligibility. The official gallery also blocks framing and documents no embed widget. [Technical and terms findings](review/v0.4.0/whitewater-webcam-research.md)
+
+The optional review launcher exercises 15-minute refresh with local synthetic stills only. The camera timer and preview image policy are available through the review launcher. The installed dashboard keeps its same-origin image policy, fixture gallery and official links. Capture-time interpretation and seasonal continuity remain unverified.
 
 ## Whitewater webcam integration review before v0.3.3
 

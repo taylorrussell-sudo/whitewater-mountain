@@ -98,7 +98,26 @@ class PrivateEdgeTest(unittest.TestCase):
                     self.wait_for_health(api, api_port, f"127.0.0.1:{api_port}")
                     self.wait_for_health(edge, lan_port, lan_host)
                     self.wait_for_health(edge, tail_port, tail_host)
-                    self.assertEqual(self.request("GET", lan_port, lan_host, path="/")[0], 200)
+                    status, dashboard_headers, _ = self.request("GET", lan_port, lan_host, path="/")
+                    self.assertEqual(status, 200)
+                    self.assertEqual(dashboard_headers["x-frame-options"], "DENY")
+                    self.assertEqual(dashboard_headers["cross-origin-resource-policy"], "same-origin")
+                    self.assertEqual(dashboard_headers["x-content-type-options"], "nosniff")
+                    directives = {part.strip() for part in dashboard_headers["content-security-policy"].split(";")}
+                    self.assertTrue({"default-src 'none'", "img-src 'self'", "connect-src 'self'",
+                                     "frame-ancestors 'none'"} <= directives)
+                    fixture = "/mountain_service/camera_fixtures/lodge.webp"
+                    status, image_headers, image = self.request("GET", lan_port, lan_host, path=fixture)
+                    self.assertEqual(status, 200)
+                    self.assertEqual(image_headers["content-type"], "image/webp")
+                    self.assertEqual(image_headers["cross-origin-resource-policy"], "same-origin")
+                    self.assertIn("private", image_headers["cache-control"])
+                    self.assertEqual(image[8:12], b"WEBP")
+                    self.assertEqual(self.request("GET", lan_port, lan_host, path=fixture,
+                                                  source="127.0.0.2")[0], 403)
+                    self.assertEqual(self.request("GET", lan_port, tail_host, path=fixture)[0], 403)
+                    self.assertEqual(self.request("GET", lan_port, lan_host,
+                                                  path="/mountain_service/camera_fixtures/unknown.webp")[0], 404)
                     self.assertEqual(self.request("GET", lan_port, lan_host, source="127.0.0.2")[0], 403)
                     self.assertEqual(self.request("GET", lan_port, tail_host)[0], 403)
                     self.assertEqual(self.request("GET", tail_port, lan_host)[0], 403)
@@ -112,6 +131,13 @@ class PrivateEdgeTest(unittest.TestCase):
                             self.assertEqual(status, 409)
                             self.assertIn(b"no_enabled_sources", body)
                             self.assertNotIn("access-control-allow-origin", response_headers)
+                            status, preflight_headers, _ = self.request("OPTIONS", port, host, [
+                                ("Origin", "https://outside.example"),
+                                ("Access-Control-Request-Method", "POST"),
+                                ("Access-Control-Request-Headers", "X-Mountain-Refresh"),
+                            ], path="/v1/refresh")
+                            self.assertGreaterEqual(status, 400)
+                            self.assertFalse(any(name.startswith("access-control-") for name in preflight_headers))
                             self.assertEqual(self.request("POST", port, host, headers)[0], 403)
                             self.assertEqual(self.request("POST", port, host, [("Origin", origin)])[0], 400)
                             for bad_origin in ("null", "https://outside.example", f"http://{tail_host}"):
@@ -155,6 +181,6 @@ class PrivateEdgeTest(unittest.TestCase):
                 conn.putheader(name, value)
             conn.endheaders(body)
             response = conn.getresponse()
-            return response.status, {name.lower() for name, _ in response.getheaders()}, response.read()
+            return response.status, {name.lower(): value for name, value in response.getheaders()}, response.read()
         finally:
             conn.close()

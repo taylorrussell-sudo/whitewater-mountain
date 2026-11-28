@@ -1,6 +1,6 @@
-# v0.3.4 private Raspberry Pi installation
+# Private Raspberry Pi installation
 
-v0.3.4 is proposed for review. The owner reported that the existing production installation passed network security, refresh validation, automatic startup, reboot recovery and encrypted configuration backup verification. Run the gates below again for any approved upgrade. The target is a Raspberry Pi 5 with 4 GB RAM, NVMe, Raspberry Pi OS (Debian 13, ARM64), and a 1920 × 1080 Chromium touchscreen. Follow the stages below only after the owner approves a maintenance window and production installation. The package is the reviewed Git revision, the standard-library Python service and the templates in this directory.
+The owner reports that production is running v0.3.4 at `6ee2cf3d6def76e881f3755a1dde05f04e03c1d5`. Backend and LAN checks passed, all three Mountain services are active, and boot enablement was preserved. Physical-device acceptance and post-upgrade encrypted backup verification are pending. The v0.4.0 upgrade utility is a development candidate verified with scratch releases and simulated services. The target is a Raspberry Pi 5 with 4 GB RAM, NVMe, Raspberry Pi OS (Debian 13, ARM64), and a 1920 × 1080 Chromium touchscreen. Follow these stages after the owner approves a maintenance window and production installation.
 
 The Python service binds to IPv4 loopback. An optional dedicated, unprivileged Nginx instance provides trusted household LAN access. It can also receive traffic on a second loopback port from authenticated Tailscale Serve. There is no public ingress. The wall browser can use the direct loopback URL on the Pi. Keep the standalone simulation and existing simulated GitHub Pages preview until private operation is verified and the owner separately approves Pages retirement.
 
@@ -21,7 +21,7 @@ All values below are examples. Substitute the verified account, paths and ports 
 
 | Purpose | Example | Ownership and mode |
 | --- | --- | --- |
-| Immutable source releases | `/opt/whitewater-mountain/releases/v0.3.4-<short-sha>` | root-owned, service-readable, release directories 0755 |
+| Immutable source releases | `/opt/whitewater-mountain/releases/v<version>-<short-sha>` | root-owned, service-readable, release directories 0755 |
 | Active release link | `/opt/whitewater-mountain/current` | root-managed |
 | Persistent SQLite and lock files | `/var/lib/whitewater-mountain` | dedicated service UID/GID, directory 0700 |
 | Service settings | `/etc/whitewater-mountain/service.env` | root-owned 0600, read by systemd |
@@ -34,18 +34,19 @@ All values below are examples. Substitute the verified account, paths and ports 
 With the merged, reviewed commit available in a trusted checkout, confirm its full SHA, version and provenance. Stage the runtime tree with the operator account first. Use an unused release path.
 
 ```sh
-# Set APPROVED_SHA to the reviewed full SHA before running.
+# Set APPROVED_SHA and APPROVED_VERSION to the reviewed release values before running.
 set -eu
 app=/opt/whitewater-mountain
-sha=$(git rev-parse --verify "${APPROVED_SHA:?set reviewed SHA}^{commit}")
-short_sha=$(git rev-parse --short=12 "$sha")
-release="$app/releases/v0.3.4-$short_sha"
+sha=$(git --no-replace-objects rev-parse --verify "${APPROVED_SHA:?set reviewed SHA}^{commit}")
+[ "$sha" = "$APPROVED_SHA" ]
+short_sha=$(git --no-replace-objects rev-parse --short=12 "$sha")
+release="$app/releases/v${APPROVED_VERSION:?set reviewed version}-$short_sha"
 staging=$(mktemp -d)
-git archive --output="$staging/release.tar" "$sha" index.html mountain_service poc
+git --no-replace-objects archive --output="$staging/release.tar" "$sha" index.html mountain_service poc
 mkdir "$staging/code"
 tar -xf "$staging/release.tar" -C "$staging/code"
-(cd "$staging/code" && /usr/bin/python3 -EsB -m mountain_service --version)
-# Check it prints 0.3.4 before copying or switching.
+version=$(cd "$staging/code" && /usr/bin/python3 -EsB -m mountain_service --version)
+[ "$version" = "$APPROVED_VERSION" ]
 ```
 
 ### Prepare directories for a fresh installation
@@ -166,14 +167,48 @@ Follow the source windows for stored data and backups. The live cache keeps fore
 
 ### Upgrade an existing installation
 
+#### One-command activation for a reviewed release
+
+Use [upgrade.py](upgrade.py) for an existing, healthy installation with a reviewed backward-compatible SQLite release. The tool stages only `index.html`, `mountain_service/` and `poc/` from the approved commit. This path supports the standard app and unit names above, an operator-owned Git checkout containing both reviewed commits, and owner-controlled installation and private backup directories. Supply alternate app, config or unit directories only if already installed at those locations. The runtime files of the active release must match its reviewed Git tree. The existing `service.env` uses the assignments shown in the example, and an active edge requires its existing approved RFC 1918 IPv4 HTTP origin in `MOUNTAIN_EDGE_ARGS`. Keep the console available and record the current pointer and boot settings in the private operations handoff.
+
+1. Finish the outstanding v0.3.4 acceptance and encrypted backup drill. Use the approved encryption method and retain an encrypted off-device copy and separately accessible recovery material. For the utility, the decrypted scratch directory must be root-owned and mode 0700. The encrypted archive and receipt must have separate absolute paths in root-owned mode-0700 directories outside the installed app and configuration. The archive and receipt are root-only files. Check the decrypted archive for exactly the app allowlist and normalize its private scratch layout as follows. Retain each installed file's permissions and include all app-specific loaded unit drop-ins. Keep the original encrypted backup format.
+
+   - `config/service.env`, plus `config/nginx.conf`, `config/proxy.conf` and `config/ingress/` files when the edge is installed, and `config/firewall.nft` when the Mountain firewall is installed.
+   - `units/` contains the installed Mountain unit files and their app-specific drop-ins at the same relative paths as the system unit directory.
+   - `release.json` is mode 0600. Back up the installed file once the tool has created it. For the first run, include a private file with `repository` set to `https://github.com/taylorrussell-sudo/whitewater-mountain`, the active full reviewed `commit`, CLI `version`, absolute resolved release `target`, and an `enablement` object mapping the installed full unit names to their current `systemctl is-enabled` values. Also record the previous reviewed SHA and target if available. Keep this file in the encrypted archive with the configuration.
+
+2. From a trusted checkout, verify the release approval and the utility's review before running it with root privileges. Run the receipt command after actually decrypting the specified archive and restoring its files into the scratch directory. The command compares the restored files, their permissions, known-good release and boot settings to the installed state. The receipt pins that result to the archive's exact bytes. It relies on the operator's completed decryption, off-device copy and key recovery checks. The utility uses the operator checkout's account for Git commands and the staged CLI version check.
+
+   ```sh
+   sudo /usr/bin/python3 -IB "$TRUSTED_UPGRADER" \
+       --repo "$CHECKOUT" --archive "$ENCRYPTED_BACKUP" --receipt "$BACKUP_RECEIPT" \
+       verify-backup --restored "$RESTORE_DIR"
+   ```
+
+3. Run the release command once with `--preflight` appended. This checks the current release and verified backup, stages the reviewed SHA in scratch under the release directory, verifies the archived files and CLI version, and checks the running backend and active LAN edge. It leaves the release pointer, services and metadata in place. Then run the same command without `--preflight` in the approved window. Omit `--lan-origin` if the edge was intentionally stopped.
+
+   ```sh
+   sudo /usr/bin/python3 -IB "$TRUSTED_UPGRADER" \
+       --repo "$CHECKOUT" --archive "$ENCRYPTED_BACKUP" --receipt "$BACKUP_RECEIPT" \
+       upgrade --sha "$APPROVED_SHA" --version "$APPROVED_VERSION" --lan-origin "$LAN_ORIGIN"
+   ```
+
+   The activation retains the known-good release and serializes release operations. It stops the active edge and backend, confirms the backend is stopped, switches `current` atomically, and probes the backend and active LAN edge with bounded GET requests. It verifies that the running backend uses the selected release directory, checks the existing Mountain firewall when active, and publishes private `release.json` only after success. Configuration, source flags, units, boot settings and the SQLite database path carry forward. The script reports fixed messages without displaying paths, service configuration or subprocess output. On failure it attempts to restore the previous pointer and runtime state and recheck health. A verified failed activation can be retried after diagnosis using the same approved SHA and backup receipt. Retained staged releases are reused only if their file contents still match.
+
+4. Repeat the physical and network gates in section 8, including the allowed household client and an out-of-scope client. The automated LAN probe uses the existing listener from the Pi. Verify the real phone, wall, boot and optional private remote access separately. Take a new encrypted configuration-only backup after acceptance and verify decryption, contents and permissions in private scratch. Keep the pre-upgrade archive and previous release available through the rollback window. The old receipt will no longer verify the current release after a successful switch.
+
+Use the manual steps below for custom layouts and reviewed SQLite migration or restore work. If activation reports rollback failure, the host loses power, or the utility is force-killed, inspect the private pointer, metadata and service state locally before any retry. Restore the previously recorded target and verify health and isolation. Release pointer and metadata replacement are distinct operations. The utility catches normal termination and interrupt signals during activation, while an uncatchable interruption can leave these operations incomplete.
+
+#### Manual upgrade
+
 1. Record the current release target, configured source keys and SQLite path, firewall policy, and the app and edge's running state and boot enablement in the private operations handoff. Refresh the encrypted configuration backup. Use `systemctl is-enabled` for each installed app or edge unit to capture its existing boot setting.
-2. Stage and copy the reviewed release using [Stage a reviewed release](#stage-a-reviewed-release) and [Copy the staged release](#copy-the-staged-release). Keep the installed `service.env` with its existing source flags, origins and database path. Leave the SQLite database and its sidecars in the existing state directory. v0.3.4 has no schema migration. Keep the installed firewall rules and app-specific units and drop-ins in place. Use the optional firewall installation steps only for a separately approved firewall change.
+2. Stage and copy the reviewed release using [Stage a reviewed release](#stage-a-reviewed-release) and [Copy the staged release](#copy-the-staged-release). Keep the installed `service.env` with its existing source flags, origins and database path. Leave the SQLite database and its sidecars in the existing state directory. Upgrading from v0.3.4 to v0.4.0 requires no schema migration. Keep the installed firewall rules and app-specific units and drop-ins in place. Use the optional firewall installation steps only for a separately approved firewall change.
 3. Stop the edge if it is running, then stop the app. Keep the existing firewall in place while the edge is down. [Switch the active release](#switch-the-active-release). If the dedicated Nginx config still has the old zone size, change only `mountain_connections` to `1m` in the installed config and keep the existing listeners and access rules.
 4. Start the app and [check HTTP readiness](#check-http-readiness). Verify the CLI version, configured source set and active SQLite path against the baseline. Start the edge if it was running before the upgrade and check the existing ingress paths. Leave boot enablement as recorded and check it again with `systemctl is-enabled`. Use `start` and `stop` for the rollout and leave the enablement links in place. Keep any intentionally stopped units in their prior runtime state. Run collector-disabled drills separately with a scratch database and configuration.
 
 ### Roll back or remove
 
-To roll back, stop the edge and app, set `release` to the previous release target recorded before the upgrade, and repeat the [atomic switch](#switch-the-active-release). Restore any compatible configuration changed during the upgrade. Keep the state directory in place for a schema-compatible rollback. If a future schema is incompatible, use a fresh path from a checked pre-update snapshot and retain the newer database. If rolling back an approved change to the optional firewall, stop its unit while its stop command is still configured. Remove the drop-in and Mountain firewall unit only after securing the port with the previous host rules or leaving LAN ingress disabled. If any units or drop-ins changed, verify them and reload systemd. Repeat loopback and private ingress gates and confirm the prior boot settings.
+To roll back, stop the edge and app and confirm both have stopped. Set `release` to the previous release target recorded before the upgrade and repeat the [atomic switch](#switch-the-active-release). Use `systemctl reset-failed` for the affected app or edge unit if start limits prevent the known-good release from starting. Restore any compatible configuration changed during the upgrade. Keep the state directory in place for a schema-compatible rollback. If a future schema is incompatible, use a fresh path from a checked pre-update snapshot and retain the newer database. Start the backend first and wait for loopback readiness, then start the edge if it was previously active and repeat the private ingress gates. Confirm the prior boot settings. After verified recovery, reconcile private `release.json` against the pre-upgrade archive and confirm the encrypted backup and recovery remain valid. If rolling back an approved change to the optional firewall, stop its unit while its stop command is still configured. Remove the drop-in and Mountain firewall unit only after securing the port with the previous host rules or leaving LAN ingress disabled. If any units or drop-ins changed, verify them and reload systemd.
 
 To back out an initial install, stop and disable the edge and app, stop the optional firewall unit and remove only this app’s optional Serve route. Restore the previous app-specific files and reload systemd. Preserve app data privately until its disposition is approved. Recheck Calendar, Home Assistant and Music Assistant.
 

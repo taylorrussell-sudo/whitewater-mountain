@@ -1,4 +1,4 @@
-# Private mountain weather service v0.3.4 (proposed)
+# Private mountain weather service v0.4.0 (candidate)
 
 The service requires Python 3.10+ on Linux and uses Python's standard library and SQLite. It listens on IPv4 loopback. Open the service URL for the private dashboard. Opening the repository’s static index directly runs the standalone simulation.
 
@@ -29,7 +29,9 @@ Forecast polls each use a single two-point request. With all products enabled, t
 
 Whitewater checks use fixed public URLs and the same bounded response handling as other adapters. No requests are made sooner than the source interval, including after transport errors and during manual batches. Shared provider spacing is at least 10 seconds, and provider blocks apply to both sources. These intervals cover the observed one-hour cache lifetime. Requests use the normal URLs without cache-busting.
 
-The camera uses one roughly 1 KiB metadata response and downloads a still only when the source time advances or there is no cached frame. A newer source time with identical image bytes leaves the prior image age in place. The JPEG is capped at 256 KiB and dimensions at 1920 × 1080. Provider stop and cooldown rules apply. Other camera failures wait for the normal interval. At 20-minute intervals, the measured 60 KiB stills use about 4.2 MiB/day of upstream image bandwidth if every check has a new frame. At the 15-minute manual minimum, the corresponding upper estimate is 5.6 MiB/day. These estimates exclude HTTP overhead. The browser reuses the same private, versioned still in Overview, Webcams and the enlarged view. See the source review for the difference between the feed update and the image watermark. [Camera validation](../DATA_SOURCES.md#webcam-validation-in-v0321)
+The five Whitewater resort views in the dashboard use bundled synthetic stills and keep the official camera links. They add no source keys, collector work or database entries. [Resort webcam review](../review/v0.4.0/whitewater-webcam-research.md)
+
+The DriveBC camera uses one roughly 1 KiB metadata response and downloads a still only when the source time advances or there is no cached frame. A newer source time with identical image bytes leaves the prior image age in place. The JPEG is capped at 256 KiB and dimensions at 1920 × 1080. Provider stop and cooldown rules apply. Other camera failures wait for the normal interval. At 20-minute intervals, the measured 60 KiB stills use about 4.2 MiB/day of upstream image bandwidth if every check has a new frame. At the 15-minute manual minimum, the corresponding upper estimate is 5.6 MiB/day. These estimates exclude HTTP overhead. The browser reuses the same private, versioned still in Overview, Webcams and the enlarged view. See the source review for the difference between the feed update and the image watermark. [Camera validation](../DATA_SOURCES.md#webcam-validation-in-v0321)
 
 ## Local API v1
 
