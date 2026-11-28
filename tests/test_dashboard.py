@@ -23,9 +23,9 @@ CAMERAS = {
     "Day Lodge": "https://webcams.skiwhitewater.com/webcams/lodge/current.jpg",
     "Summit": "https://webcams.skiwhitewater.com/webcams/summit/current.jpg",
     "Raven": "https://webcams.skiwhitewater.com/webcams/raven/current.jpg",
-    "Glory": "https://webcams.skiwhitewater.com/webcams/glory/current.jpg",
-    "Snow plot": "https://webcams.skiwhitewater.com/webcams/weatherstick/current.jpg",
-    "Access road": "https://www.drivebc.ca/",
+    "Glory Ridge": "https://webcams.skiwhitewater.com/webcams/glory/current.jpg",
+    "Weather Stick": "https://webcams.skiwhitewater.com/webcams/weatherstick/current.jpg",
+    "Hwy 6 junction": "https://www.drivebc.ca/cameras/759",
 }
 
 
@@ -101,6 +101,7 @@ class DashboardTest(TestCase):
                 self.assertTrue(self.page.evaluate("document.documentElement.scrollHeight <= innerHeight"))
                 self.page.get_by_role("button", name="Explore powder outlook →").press("Enter")
                 expect(self.page.locator("#powder")).to_be_visible()
+                expect(self.page.locator("#powder h2").first).to_be_focused()
                 expect(self.page.locator("#totals strong")).to_have_text(
                     [f"{sum(snow[:n])} cm" for n in (1, 2, 3)]
                 )
@@ -297,9 +298,10 @@ class DashboardTest(TestCase):
             expect(button).to_have_css("outline-style", "solid")
             expect(button).to_have_attribute("aria-pressed", "true")
             expect(self.page.locator('#camchips [aria-pressed="true"]')).to_have_count(1)
-            expect(self.page.locator("#camhero svg")).to_have_attribute(
-                "aria-label", f"Illustrated placeholder for {name}"
-            )
+            sample = self.page.locator("#camhero img")
+            expect(sample).to_be_visible()
+            self.assertTrue(sample.get_attribute("alt").startswith("Synthetic sample showing"))
+            expect(button).to_have_text(name)
             expect(self.page.locator("#camlink a")).to_have_attribute("href", url)
             self.page.keyboard.press("Tab")
         expect(self.page.locator("#camlink a")).to_be_focused()
@@ -308,6 +310,28 @@ class DashboardTest(TestCase):
         self.tab("webcams")
         links = self.page.locator("#cameragrid .btnlink")
         self.assertEqual(links.evaluate_all("(links) => links.map(link => link.href)"), list(CAMERAS.values()))
+
+    def test_phone_navigation_and_powder_priority(self):
+        page = self.browser.new_page(is_mobile=True, has_touch=True)
+        self.addCleanup(page.close)
+        for width, height in ((390, 844), (430, 932)):
+            with self.subTest(width=width, height=height):
+                page.set_viewport_size({"width": width, "height": height})
+                page.goto(self.origin + "index.html")
+                self.assertLess(page.locator("#powdercards").bounding_box()["y"],
+                                page.locator("#profile").bounding_box()["y"])
+                for name in TABS:
+                    with self.subTest(tab=name):
+                        target = page.locator(f'[data-tab="{name}"]')
+                        bounds = target.bounding_box()
+                        self.assertGreaterEqual(bounds["width"], 44)
+                        self.assertGreaterEqual(bounds["height"], 44)
+                        self.assertGreaterEqual(bounds["x"], 0)
+                        self.assertLessEqual(bounds["x"] + bounds["width"], width)
+                        self.assertLessEqual(bounds["y"] + bounds["height"], height)
+                        target.tap()
+                        expect(target).to_have_attribute("aria-current", "page")
+                        expect(page.locator(f"#{name}")).to_be_visible()
 
     def test_responsive_layout(self):
         self.page.add_style_tag(content="html { scrollbar-gutter: stable }")
@@ -350,7 +374,9 @@ class DashboardTest(TestCase):
                 self.assertGreaterEqual(bounds["height"], 44)
             if selector.startswith("#camchips"):
                 page.get_by_role("button", name="Summit", exact=True).tap()
-                expect(page.locator("#camhero .overlay")).to_contain_text("Summit")
+                expect(page.locator("#camhero [data-enlarge]")).to_have_attribute(
+                    "aria-label", "Enlarge Summit sample"
+                )
                 page.get_by_role("button", name="Webcams", exact=True).tap()
                 expect(page.locator("#webcams")).to_be_visible()
 

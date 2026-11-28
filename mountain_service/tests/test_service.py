@@ -12,6 +12,7 @@ from poc.sources import LODGE, NELSON
 from poc.synthetic import NOW, forecast_fixture, valley_fixture
 
 from mountain_service import store
+from mountain_service.__main__ import COLLECTABLE
 from mountain_service.api import weather
 from mountain_service.collect import Collector, DAILY_WEATHER_REFRESHES, FetchError, retry_after
 from mountain_service.sources import FREEZING, HRDPS, IFS, NELSON_CS, PROFILE_FIELDS, crossings
@@ -42,6 +43,17 @@ def profile(times=(ANCHOR,)):
 
 
 class AdaptersTest(unittest.TestCase):
+    def test_only_the_seven_approved_integrations_are_collectable_at_existing_intervals(self):
+        self.assertEqual({key: source.interval for key, source in COLLECTABLE.items()}, {
+            "ifs": 3 * 3600,
+            "hrdps": 3 * 3600,
+            "nelson_cs": 3600,
+            "freezing_profile": 6 * 3600,
+            "whitewater": 2 * 3600,
+            "whitewater_weather": 3600,
+            "drivebc_whitewater": 20 * 60,
+        })
+
     def test_pinned_models_and_independent_horizons(self):
         for source, model, hours in ((IFS, "ecmwf_ifs", "170"), (HRDPS, "gem_hrdps_continental", "48")):
             query = parse_qs(urlsplit(source.url(NOW)).query)
@@ -141,10 +153,6 @@ class StoreTest(unittest.TestCase):
             self.assertEqual(len(calls), 1)
 
     def test_manual_weather_budget_persists_and_preserves_due_checks(self):
-        # Exercise an existing database that predates the additive migration.
-        with store.connect(self.path, write=True) as db, db:
-            db.execute("DROP TABLE manual_weather_budget")
-        store.prepare(self.path)
         self.now = ANCHOR // 86400 * 86400 + 3600
         calls = []
 
@@ -185,6 +193,52 @@ class StoreTest(unittest.TestCase):
         collector.cycle(manual=True)
         self.assertEqual(set(collector.outcomes.values()), {"failed"})
         self.assertEqual(collector.refresh_status()["weather_budget"]["remaining"], DAILY_WEATHER_REFRESHES - 1)
+
+    def test_early_weather_batch_crossing_utc_midnight_reserves_each_day(self):
+        self.now = (ANCHOR // 86400 + 1) * 86400 - 1
+        last_day = self.now // 86400
+        sources = (IFS, HRDPS, FREEZING)
+        with store.connect(self.path, write=True) as db:
+            for source in sources:
+                store.save(db, source, self.now - 120, {}, None, 0, self.now + 120)
+
+        charged = []
+
+        def fetch(url):
+            day = self.now // 86400
+            with store.connect(self.path) as db:
+                charged.append((day, store.manual_weather_used(db, day)))
+            if day == last_day:
+                self.now += 1
+            if parse_qs(urlsplit(url).query)["models"] == ["gfs025"]:
+                return profile((self.now,))
+            return forecast(self.now)
+
+        collector = Collector(self.path, sources, lambda: self.now, fetch)
+        collector.cycle(manual=True)
+        self.assertEqual(set(collector.outcomes.values()), {"updated"})
+        self.assertEqual(charged, [(last_day, 1), (last_day + 1, 1), (last_day + 1, 1)])
+        restarted = Collector(self.path, sources, lambda: self.now, fetch)
+        self.assertEqual(restarted.refresh_status()["weather_budget"]["remaining"], DAILY_WEATHER_REFRESHES - 1)
+
+    def test_migrating_cache_without_budget_keeps_observations_and_provider_state(self):
+        payload = IFS.normalize(forecast(), NOW)
+        readings = NELSON_CS.normalize(valley_fixture(), NOW)
+        with store.connect(self.path, write=True) as db:
+            db.execute("DROP TABLE manual_weather_budget")
+            store.save(db, IFS, self.now, payload, None, 0, self.now + IFS.interval)
+            store.save(db, NELSON_CS, self.now, readings, None, 0, self.now + NELSON_CS.interval)
+            store.save(db, IFS, self.now, None, "http_403", 0, self.now + IFS.interval, (True, None))
+        before = self.views()
+
+        store.prepare(self.path)
+        self.assertEqual(self.views(), before)
+        self.assertEqual(before["ifs"]["provider_state"], "blocked")
+        self.assertEqual(before["ifs"]["status"], "fresh")
+        self.assertEqual(before["nelson_cs"]["status"], "fresh")
+        with store.connect(self.path) as db:
+            self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 1)
+            self.assertEqual(store.manual_weather_used(db, self.now // 86400), 0)
 
     def test_scheduler_restart_good_cache_and_source_failure(self):
         calls = []

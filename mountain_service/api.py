@@ -15,6 +15,11 @@ from .sources import DISABLED, NELSON_CS, RESORT_SNOW, RESORT_WEATHER, SOURCES
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD = ROOT / "index.html"
 LIVE_SCRIPT = Path(__file__).with_name("dashboard.js")
+CAMERA_FIXTURES = {
+    f"/mountain_service/camera_fixtures/{camera}.webp":
+        ROOT / "mountain_service" / "camera_fixtures" / f"{camera}.webp"
+    for camera in ("lodge", "summit", "raven", "glory", "weatherstick", "road")
+}
 
 
 def coverage(times, data, after):
@@ -231,6 +236,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path in ("/", "/index.html", "/dashboard.js", "/v1/refresh"):
             self.dashboard_route()
+            return
+        if self.path in CAMERA_FIXTURES:
+            try:
+                data = CAMERA_FIXTURES[self.path].read_bytes()
+            except OSError:
+                self.reply(404, {"error": "not_found"})
+            else:
+                self.send_content(200, data, "image/webp", cache="private, max-age=3600")
             return
         now = int(self.server.clock())
         if self.path.startswith("/v1/cameras/"):

@@ -55,9 +55,13 @@
     if ($(id).textContent !== value) $(id).textContent = value;
   };
   const row = (label, value) => `<div class="row"><span>${label}</span><strong>${value}</strong></div>`;
-  const metric = (label, value, note = '', status) =>
-    `<div class="metric"><strong${value === 'Unavailable' ? ' class="missing"' : ''}>${value}</strong>
-     <span>${label}</span><small>${note}${status && status !== 'Fresh' ? `${note ? ' · ' : ''}${status}` : ''}</small></div>`;
+  function metric(label, value, note, status, kind = 'observed') {
+    const state = status === 'Stale' ? '<span class="stale-label">Stale</span>'
+      : status === 'Collection disabled' ? status : '';
+    return `<div class="metric" data-kind="${kind}"${status === 'Stale' ? ' data-status="stale"' : ''}>
+      <strong${value === 'Unavailable' ? ' class="missing"' : ''}>${value}</strong>
+      <span class="metric-label">${label}</span><small>${[note, state].filter(Boolean).join(' · ')}</small></div>`;
+  }
   const box = (label, value) => `<div><strong>${value}</strong><span>${label}</span></div>`;
   const hour = 3600;
   const timeSeries = (point, field) => new Map(
@@ -125,7 +129,8 @@
     const current = data?.crossings[data.times.indexOf(anchor)] ?? null;
     html('profile', profile(current, 'main', coldAir));
     $('cold-air-key').hidden = !coldAir;
-    html('profile-valid', `GFS derived · ${crossingsText(current)}${current ? ` · Valid ${time(anchor)}` : ''}${source ? `<br>${credit(source)}` : ''}`);
+    const stale = source?.status === 'stale' ? ' · <span class="stale-label">Stale</span>' : '';
+    html('profile-valid', `GFS derived · <strong>${crossingsText(current)}</strong>${stale}${current ? ` · Valid ${time(anchor)}` : ''}${source ? `<br>${credit(source)}` : ''}`);
     const rows = data?.times.map((at, i) => at >= anchor
       ? `<tr><th scope="row">${time(at)}</th><td>${crossingsText(data.crossings[i])}</td></tr>` : '').join('');
     html('freezechart', rows ? `<details><summary>Hourly crossings · ${time(data.times.at(-1))} horizon</summary>
@@ -140,7 +145,7 @@
     const direction = current?.wind_from;
     const windText = [direction, wind].filter(Boolean).join(' ');
     const valid = reading ? ` · ${time(reading.valid_at)}` : '';
-    const note = windText ? `Wind ${windText}${valid}` : `Wind unavailable${valid}`;
+    const note = windText ? `Wind ${windText}${valid}` : reading ? `Wind unavailable${valid}` : '';
     return metric(`${label} · Whitewater measured`, temperature(current?.temperature_c),
       `${note}`, sourceStatus(reading ?? (source?.status === 'disabled' ? source : null)));
   }
@@ -177,19 +182,20 @@
     html('metrics', [
       metric('Nelson CS · measured', temperature(reading?.temperature_c), reading ?
         `Valid ${time(reading.valid_at)}` : '', sourceStatus(nelson)),
-      metric('Lodge · IFS forecast', temperature(temp.value), temp.at ? `Valid ${time(temp.at)}` : '', sourceStatus(ifs)),
-      metric('Snow · IFS next 24 h', units(next?.[24], 'cm'), Number.isFinite(next?.[24]) ?
-        `Ends ${time(snow.start + 24 * hour)}` : '', sourceStatus(ifs)),
       metric(report ? link(report.link, 'Whitewater · reported 24 h') : 'Whitewater · reported 24 h', units(reported?.['24h'], 'cm'), report?.data ?
-        `Report ${time(report.data.report_updated_at)}` : '', sourceStatus(report)),
+        `Report ${time(report.data.report_updated_at)}` : '', sourceStatus(report), 'reported'),
+      metric('Snow · IFS next 24 h', units(next?.[24], 'cm'), Number.isFinite(next?.[24]) ?
+        `Ends ${time(snow.start + 24 * hour)}` : '', sourceStatus(ifs), 'forecast'),
       stationMetric('Lodge', stations?.lodge, mountain),
       stationMetric('Summit', stations?.summit, mountain),
+      metric('Lodge · IFS forecast', temperature(temp.value), temp.at ? `Valid ${time(temp.at)}` : '', sourceStatus(ifs), 'forecast'),
     ].join(''));
-    const rings = `<div class="powderpair">${ring(reported?.['24h'] ?? null, false, 'LAST 24 HOURS', 'Whitewater')}
-      ${ring(peak?.cm ?? null, true, 'PEAK 24H', 'IFS HRES')}</div>`;
+    const rings = `<div class="powderpair">${ring(reported?.['24h'] ?? null, false, 'LAST 24 HOURS', 'Whitewater', report?.status)}
+      ${ring(peak?.cm ?? null, true, 'PEAK 24H', 'IFS HRES', ifs?.status)}</div>`;
     html('powdercards', rings);
     html('powdercards2', rings);
     text('powdersummary', peak ? `IFS peak · ${time(peak.start)} – ${time(peak.end)}`
+      : ifs?.status === 'stale' ? 'IFS forecast stale. A fresh run is required for a peak.'
       : 'Peak forecast unavailable. A complete 72-hour window is required.');
     html('resort-report', `<p class="smallnote">${report ? credit(report) + ' · ' : ''}Summit snow plot · 1,950 m
       · ${sourceStatus(report)}${report?.data ? ' · Updated ' + time(report.data.report_updated_at) : ''}</p>
@@ -270,116 +276,8 @@
     }).join(''));
   }
 
-  const road = 5;
-  const roadLink = 'https://www.drivebc.ca/cameras/759';
-  const licenceLink = 'https://www2.gov.bc.ca/gov/content/data/open-data/open-government-licence-bc';
-  const cameraNames = ['Day Lodge', 'Summit', 'Raven', 'Glory Ridge', 'Weather Stick', 'Hwy 6 junction'];
-  const roadAlt = 'DriveBC view north along Highway 6 at the Whitewater Ski Hill Road junction';
-  const cameraCredit = link(licenceLink, 'Contains information licensed under the Open Government Licence – British Columbia');
-  const still = (enlarge = true) => `<div class="camera live-camera">
-    ${enlarge ? `<button type="button" data-enlarge aria-label="Enlarge Highway 6 junction camera" hidden><img alt="${roadAlt}"><span class="camera-enlarge-label" aria-hidden="true">Enlarge</span></button>`
-      : `<img alt="${roadAlt}" hidden>`}
-    <p class="camera-empty">Image unavailable</p></div>
-    <p class="live-camera-date"></p>`;
-  const cameraLinks = index => index === road
-    ? link(roadLink, 'Official DriveBC camera')
-    : link(cams[index][2], 'Official resort image');
-  const resortUnavailable = '<div class="camera live-camera" data-empty><p class="camera-empty">Whitewater Mountain Resort · Open official image</p></div>';
-
-  cameraButtons.forEach((button, i) => { button.textContent = cameraNames[i]; });
-  const galleryOrder = [road, 0, 1, 2, 3, 4];
-  html('cameragrid', galleryOrder.map(index => `<article class="card"${index === road ? ' id="road-camera"' : ''}>
-    <h3>${cameraNames[index]}${index === road ? ' · Whitewater Ski Hill Road' : ''}</h3>
-    ${index === road ? still() : resortUnavailable}
-    <div class="linkline live-camera-links">${cameraLinks(index)}</div>
-    ${index === road ? `<small>${cameraCredit}</small>` : ''}</article>`).join(''));
-  $('cameragrid').insertAdjacentHTML('afterend', `<p class="smallnote">Other Highway 6 views ·
-    ${link('https://www.drivebc.ca/cameras/305', 'Nelson south')} ·
-    ${link('https://www.drivebc.ca/cameras/626', 'Ymir')}</p>`);
-  document.body.insertAdjacentHTML('beforeend', `<dialog id="camera-dialog" aria-labelledby="camera-dialog-title">
-    <div class="cardhead"><h2 id="camera-dialog-title">Hwy 6 junction · DriveBC</h2>
-    <button type="button" autofocus>Close</button></div>
-    ${still(false)}<div class="linkline live-camera-links">${cameraLinks(road)}</div>
-    <small>${cameraCredit}</small></dialog>`);
-  const cameraDialog = $('camera-dialog');
-  cameraDialog.querySelector('button').addEventListener('click', () => cameraDialog.close());
-
-  function updateStill(container, camera) {
-    const image = container.querySelector('img');
-    if (!image) return;
-    const target = container.querySelector('[data-enlarge]') ?? image;
-    const empty = container.querySelector('.camera-empty');
-    const dateLabel = container.querySelector('.live-camera-date');
-    const path = camera?.image ?? null;
-    target.closest('.live-camera').toggleAttribute('data-empty', !path);
-    if (path !== image.getAttribute('src')) {
-      if (path) {
-        empty.textContent = 'Loading still…';
-        image.onload = () => {
-          target.hidden = false;
-          empty.hidden = true;
-        };
-        image.onerror = () => {
-          target.hidden = true;
-          empty.hidden = false;
-          empty.textContent = 'Image unavailable';
-        };
-        image.src = path;
-      } else {
-        image.onload = image.onerror = null;
-        image.removeAttribute('src');
-        target.hidden = true;
-        empty.hidden = false;
-      }
-    }
-    if (!path) empty.textContent = camera?.status === 'disabled' ? 'Camera collection disabled' : 'Image unavailable';
-    const stale = camera?.status === 'stale';
-    dateLabel.toggleAttribute('data-stale', stale);
-    dateLabel.textContent = path ? `${stale ? 'Stale · ' : ''}DriveBC feed updated ${time(camera.updated_at)}` : '';
-  }
-
-  function renderCameras(camera) {
-    updateStill($('camhero'), camera);
-    updateStill($('road-camera'), camera);
-    if (cameraDialog.open) updateStill(cameraDialog, camera);
-  }
-
-  function renderCameraSelection() {
-    html('camhero', cam === road ? still() : resortUnavailable);
-    html('camlink', cameraLinks(cam) + (cam === road ? `<small>${cameraCredit}</small>` : ''));
-    updateStill($('camhero'), weather?.camera);
-  }
-
-  document.addEventListener('click', event => {
-    if (!event.target.closest('[data-enlarge]')) return;
-    cameraDialog.showModal();
-    updateStill(cameraDialog, weather?.camera);
-  });
-  cameraDialog.addEventListener('close', () => {
-    const image = cameraDialog.querySelector('img');
-    image.onload = image.onerror = null;
-    image.hidden = true;
-    image.removeAttribute('src');
-    cameraDialog.querySelector('.camera-empty').hidden = false;
-  });
-
   const refreshButton = $('refresh-button');
   let weather, refresh, posting = false, timer, requestError = '', pollGeneration = 0;
-  try {
-    const selection = localStorage.getItem('whitewater.camera');
-    cam = selection !== null && /^[0-5]$/.test(selection) ? Number(selection) : road;
-  } catch {
-    cam = road;
-  }
-  cameraChips.addEventListener('camera-selection', () => {
-    try {
-      localStorage.setItem('whitewater.camera', String(cam));
-    } catch {
-      // The current page still preserves selection when storage is blocked.
-    }
-    renderCameraSelection();
-  });
-  renderCam();
 
   const busy = () => ['queued', 'running'].includes(refresh?.state);
 
@@ -397,9 +295,14 @@
     text('weather-budget', budget
       ? ` · Early weather checks ${budget.remaining}/${budget.limit} left` : '');
     const products = Object.entries(sourceNames).filter(([key]) => key !== 'drivebc_whitewater' && key !== 'southridge');
-    text('live-summary', weather ? products.map(([key, name]) =>
-      `${name} ${lower(sourceStatus(weather.sources[key]))}`).join(' · ') :
-      'Weather service unavailable');
+    const statuses = products.map(([key, name]) => [name, sourceStatus(weather?.sources?.[key])]);
+    const statusCounts = ['Fresh', 'Stale', 'Unavailable', 'Collection disabled'].flatMap(state => {
+      const count = statuses.filter(([, status]) => state === status).length;
+      return count ? [`${count} ${state === 'Collection disabled' ? 'disabled' : lower(state)}`] : [];
+    });
+    const offline = 'Weather service unavailable';
+    text('live-summary', weather ? statuses.map(([name, status]) => `${name} ${lower(status)}`).join(' · ') : offline);
+    text('live-summary-compact', weather ? statusCounts.join(' · ') : offline);
     const counts = Object.entries(refresh?.outcomes ?? {});
     const status = posting ? 'Requesting refresh…' : requestError || ({
       queued: 'Refresh queued.', running: 'Checking data sources…',
@@ -424,7 +327,9 @@
       requestError = '';
     }
     renderWeather(weather);
-    renderCameras(weather?.camera);
+    $('metrics').removeAttribute('aria-busy');
+    const camera = weather?.camera;
+    updateLiveRoadCamera(camera && {...camera, displayTime: time(camera.updated_at)});
     showStatus();
     timer = setTimeout(poll, busy() || refresh?.retry_in > 0 ? 1000 : 15000);
   }
@@ -452,6 +357,9 @@
     }
   });
 
-  renderWeather(null);
+  $('metrics').setAttribute('aria-busy', 'true');
+  html('metrics', '<p class="metrics-loading">Loading current conditions…</p>');
+  html('powdercards', '<p class="metrics-loading">Loading snowfall outlook…</p>');
+  html('powdercards2', '<p class="metrics-loading">Loading snowfall outlook…</p>');
   poll();
 })();

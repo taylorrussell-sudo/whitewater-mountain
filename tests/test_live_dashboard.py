@@ -29,7 +29,7 @@ class LiveDashboardTest(unittest.TestCase):
         cls.browser = playwright.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH"))
         cls.addClassCleanup(cls.browser.close)
 
-    def start(self, resort=False):
+    def start(self, resort=False, hold_initial_weather=False):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         path = Path(directory.name) / "mountain.sqlite"
@@ -74,8 +74,12 @@ class LiveDashboardTest(unittest.TestCase):
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
         self.requests = []
         self.page.on("request", lambda request: self.requests.append(request.url))
+        if hold_initial_weather:
+            self.initial_weather = []
+            self.page.route("**/v1/weather", lambda route: self.initial_weather.append(route), times=1)
         self.page.goto(self.origin)
-        expect(self.page.locator("#live-summary")).to_contain_text("ECMWF IFS HRES fresh")
+        if not hold_initial_weather:
+            expect(self.page.locator("#live-summary")).to_contain_text("ECMWF IFS HRES fresh")
 
     def tearDown(self):
         self.assertEqual(self.errors, [])
@@ -124,6 +128,20 @@ class LiveDashboardTest(unittest.TestCase):
         payload = forecast(self.now, 45)
         payload[0]["hourly"]["snowfall"] = [0.25] * 45
         return payload
+
+    def test_initial_loading_transitions_to_fresh_data_on_phone(self):
+        self.start(hold_initial_weather=True)
+        page = self.page
+        page.set_viewport_size({"width": 390, "height": 844})
+        expect(page.locator("#live-summary-compact")).to_have_text("Loading weather…")
+        expect(page.locator("#metrics .metrics-loading")).to_be_visible()
+        expect(page.locator("#refresh-button")).to_be_disabled()
+        self.assertEqual(len(self.initial_weather), 1)
+        self.initial_weather[0].continue_()
+        expect(page.locator("#live-summary-compact")).not_to_have_text("Loading weather…")
+        expect(page.locator("#metrics .metrics-loading")).to_have_count(0)
+        expect(page.locator("#metrics .metric")).to_have_count(6)
+        expect(page.locator("#refresh-button")).to_be_enabled()
 
     def test_live_sources_layout_and_multiple_crossings(self):
         self.start()
@@ -177,8 +195,11 @@ class LiveDashboardTest(unittest.TestCase):
         lodge.focus()
         page.keyboard.press("Enter")
         expect(lodge).to_be_focused()
-        expect(page.locator('#camhero')).to_contain_text("Open official image")
-        expect(image).to_have_count(0)
+        expect(page.locator('#camhero')).to_contain_text("Synthetic sample")
+        expect(image).to_have_attribute("src", "mountain_service/camera_fixtures/lodge.webp")
+        expect(page.locator('#camlink a')).to_have_attribute(
+            'href', 'https://webcams.skiwhitewater.com/webcams/lodge/current.jpg'
+        )
         page.reload()
         expect(lodge).to_have_attribute("aria-pressed", "true")
         road.click()
@@ -195,7 +216,7 @@ class LiveDashboardTest(unittest.TestCase):
 
         page.locator('[data-tab="webcams"]').click()
         expect(page.locator("#road-camera img")).to_be_visible()
-        expect(page.locator("#cameragrid img")).to_have_count(1)
+        expect(page.locator("#cameragrid img")).to_have_count(2)
         expect(page.locator("#cameragrid")).to_contain_text("Weather Stick")
         page.set_viewport_size({"width": 390, "height": 844})
         gallery_url = "https://whitewatermountainresort.com/webcams/"
@@ -270,7 +291,10 @@ class LiveDashboardTest(unittest.TestCase):
         self.now += 3 * 3600
         button.click()
         expect(page.locator("#live-summary")).to_contain_text("Nelson CS stale")
-        expect(page.locator("#metrics .metric").first).to_contain_text("Unavailable")
+        stale_tile = page.locator("#metrics .metric").filter(has_text="Nelson CS · measured")
+        expect(stale_tile).to_have_attribute("data-status", "stale")
+        expect(stale_tile.locator("strong")).to_have_text("Unavailable")
+        expect(stale_tile.locator(".stale-label")).to_have_text("Stale")
         expect(page.locator("#inversion-comparison")).to_contain_text("Forecast")
 
     def test_whitewater_reports_mountain_conditions_and_measured_inversion(self):
