@@ -20,9 +20,12 @@
 - [x] Prepare the v0.3.3 package for review with versioned installation, systemd, private ingress, monitoring, recovery and staged acceptance. [Pi runbook](deploy/pi/README.md)
 - [x] The owner reported that the existing Pi installation passed network security, refresh validation, automatic startup, reboot recovery and encrypted configuration backup verification.
 - [x] Prepare v0.3.4 for review with the ARM64 Nginx zone fix, optional app-scoped LAN firewall and updated operations runbook.
-- [ ] After approval, apply the v0.3.4 package and repeat its Pi acceptance gates, including ARM64 Nginx startup, boot ordering, ingress isolation and rollback. Verify any optional authenticated remote access under separate approval. Retire simulated Pages only after separate approval.
+- [x] The owner reports v0.3.4 deployed at merged commit `6ee2cf3d6def76e881f3755a1dde05f04e03c1d5`. Backend and LAN health passed and the three Mountain units are active with boot settings preserved.
+- [ ] Complete v0.3.4 physical-device acceptance and verify post-upgrade encrypted recovery before scheduling v0.4.0. Verify any optional authenticated remote access under separate approval. Retire simulated Pages only after separate approval.
+- [x] Prepare the v0.4.0 candidate with a synthetic resort gallery, dashboard refinements, local preview and a scratch-tested upgrade utility. [Visual review](review/v0.4.0/README.md)
+- [ ] Review v0.4.0 on the wall and household phones, then approve an exact SHA, version and maintenance window before a Pi upgrade. Review larger wall navigation and chart changes separately.
 - [ ] Reassess in-dashboard Whitewater webcam display when the resort provides an embedding policy or written permission. Confirm supported origins, cadence, camera clocks and seasonal availability.
-- [ ] v0.4: validate Nordic and DriveBC road reports, Avalanche Canada region/API and expiry semantics before real ratings. Family/physical-device acceptance and wall navigation integration.
+- [ ] Validate Nordic and DriveBC road reports and Avalanche Canada region/API and expiry semantics before enabling real ratings. Family/physical-device acceptance and wall navigation integration.
 
 ## Later
 - Forecast snowfall timing relative to lift opening; weekend preview; calibrated qualitative powder outlook and model agreement; local season snowfall history and forecast accuracy (subject to permissions); rain-on-snow detection; weather inversions from validated real data.

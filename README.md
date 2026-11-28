@@ -1,4 +1,4 @@
-# Whitewater Mountain Conditions — v0.3.4 (proposed)
+# Whitewater Mountain Conditions — v0.4.0 (candidate)
 
 The private Python/SQLite service serves the existing dashboard with ECMWF IFS HRES, Canadian HRDPS, measured Nelson CS temperatures and derived NOAA GFS freezing levels. This independent household dashboard includes a static simulation for design review and regression testing.
 
@@ -13,9 +13,9 @@ python -B -m mountain_service serve --db "$state_dir/mountain.sqlite"
 
 Open `http://127.0.0.1:8765` for the private dashboard. Collection defaults to disabled. Use repeated `--collect` flags for explicitly authorized sources. The development [service guide](mountain_service/README.md) lists source keys, refresh behavior and cache operations. Add `--collect drivebc_whitewater` to enable the attributed Highway 6 junction still in Overview and Webcams. For private operation, add `--collect whitewater --collect whitewater_weather` to enable the resort snow report and mountain observations. Refresh Data can advance up to six weather batches per UTC day and checks the DriveBC camera when eligible. The status line shows the remaining weather budget.
 
-In the private Webcams tab, **Open Whitewater webcam gallery (new tab)** takes you to the resort’s stills and time-lapses. Individual official still links remain available. [Webcam integration review](DATA_SOURCES.md#whitewater-webcam-integration-review-before-v033)
+The Webcams tab previews the five Whitewater camera positions with labeled synthetic stills and retains the official gallery and individual still links. The licensed DriveBC junction view uses the existing private integration. [Webcam integration review](DATA_SOURCES.md#whitewater-webcam-integration-in-v040)
 
-The [synthetic visual review](review/v0.3.2.2/README.md) includes wall, phone and webcam screenshots with text descriptions.
+The [v0.4.0 visual review](review/v0.4.0/README.md) includes before-and-after wall and phone screenshots and instructions for launching a local synthetic preview.
 
 ## Automated regression checks
 
@@ -29,17 +29,17 @@ python -m playwright install chromium
 python -B -m unittest discover -s tests -v
 ```
 
-Set `CHROMIUM_PATH` to the executable path to use an installed Chromium build. The suite checks official link destinations and gallery navigation with a fixture, without contacting providers. Physical touchscreen and other browser checks are tracked in [BACKLOG.md](BACKLOG.md).
+Set `CHROMIUM_PATH` to the executable path to use an installed Chromium build. The browser suite checks official link destinations and gallery navigation with fixtures. The [regression record](review/v0.4.0/qa.md) gives the service, ingress and proof-of-concept commands and results. The [Pi runbook](deploy/pi/README.md#one-command-activation-for-a-reviewed-release) describes preflight, activation and rollback. Physical touchscreen and other browser checks are tracked in [BACKLOG.md](BACKLOG.md).
 
 ## Deployment direction (approved 2026-11-26)
 
 One application, one codebase, one private household deployment on the Raspberry Pi. The existing public GitHub Pages v0.2.1 simulation is temporary family design feedback, not a second live environment. Retire Pages with separate approval when private hosting is verified, before enabling any public live-data access. Continue GitHub and Codex development using synthetic fixtures and local test servers. Keep all live weather records, caches and private configuration outside the repository.
 
-The intended architecture is a lightweight local service with independent server-side weather adapters, a validated cache, local history storage where permitted, and the existing responsive frontend. LAN access for the wall and family devices; optional authenticated private Tailscale access subject to verification and approval. No public Funnel or new paid service. The [local collection service](mountain_service/README.md) defines the loopback API, SQLite retention and backup, and per-source schedules. The [v0.3.4 Pi package](deploy/pi/README.md) provides the installation preflight, systemd and private ingress templates, optional LAN firewall, encrypted configuration backup and staged acceptance gates. Production installation and physical-device checks require separate approval.
+The intended architecture is a lightweight local service with independent server-side weather adapters, a validated cache, local history storage where permitted, and the existing responsive frontend. LAN access for the wall and family devices; optional authenticated private Tailscale access subject to verification and approval. No public Funnel or new paid service. The [local collection service](mountain_service/README.md) defines the loopback API, SQLite retention and backup, and per-source schedules. The [Pi runbook](deploy/pi/README.md) provides installation preflight, private ingress templates, encrypted configuration recovery, a staged upgrade utility and physical acceptance gates. Production installation and physical-device checks require separate approval.
 
 ## Next steps
 
-The isolated v0.3.0 proof of concept tests a Python/SQLite data path with synthetic inputs. Its one-shot live probes verified Open-Meteo lodge and valley forecasts and ECCC Nelson CS temperatures. The source review documents Canadian GEM and ECMWF coverage and the Southridge and Redfish Creek alternatives. Whitewater numerical collection is opt-in for household use under the owner’s decision. See the data source notes for unresolved terms and clock conventions. The owner reported that the existing Pi installation passed network security, refresh, boot, reboot and encrypted configuration backup checks. Review and repeat the acceptance gates for v0.3.4 after approval. Pages retirement remains a separate decision. Summer mode is deferred. [Data source validation](DATA_SOURCES.md) · [PoC reproduction and architecture](poc/README.md)
+The isolated v0.3.0 proof of concept tests a Python/SQLite data path with synthetic inputs. Its one-shot live probes verified Open-Meteo lodge and valley forecasts and ECCC Nelson CS temperatures. The source review documents Canadian GEM and ECMWF coverage and the Southridge and Redfish Creek alternatives. Whitewater numerical collection is opt-in for household use under the owner’s decision. See the data source notes for unresolved terms and clock conventions. The owner reported that production runs v0.3.4 with backend and LAN health passing. Physical-device acceptance and post-upgrade encrypted backup verification remain pending. Review the v0.4.0 candidate and complete those gates before scheduling its production rollout. Pages retirement remains a separate decision. Summer mode is deferred. [Data source validation](DATA_SOURCES.md) · [PoC reproduction and architecture](poc/README.md)
 
 ## Logic
 In the static dashboard’s six scenarios, simulated daily snow totals are distributed uniformly over hourly bins for illustrative rolling 24-hour forecast windows (starts 0–48 hours inclusive). Actual alerts use the last 24h; forecast alerts use the maximum 24h total ending within 72h. Values are illustrative, not a calibrated forecast. Real data needs hourly timing, model provenance and validation. Alert levels: 0–4, 5–9, 10–14, 15–24, 25–39, 40+ cm. A qualitative powder interpretation is scenario-defined rather than a numerical scientific score. No safety rating is computed from powder conditions.
