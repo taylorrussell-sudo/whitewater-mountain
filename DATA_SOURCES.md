@@ -22,7 +22,9 @@ A fresh installation starts with every source disabled. Upgrades retain the exis
 
 The dashboard uses bundled original synthetic stills for Lodge, Summit, Glory, Summit Weather Station (snow plot), and Raven. The gallery links to the provider's official viewer and individual stills. It adds no upstream requests, source opt-ins, camera polling or storage of resort imagery. The existing licensed DriveBC camera keeps its independent cadence, attribution and cache policy.
 
-The five linked stills and time-lapses are published for viewing on the resort site. Section 2 and the earlier technical samples leave in-dashboard display permission, timestamp interpretation and seasonal availability unresolved. The existing household decision covers factual measurements. [v0.4.0 evidence and approval pathway](review/v0.4.0/whitewater-webcam-research.md)
+The official gallery renders the five linked stills and offers them for ordinary top-level viewing. One HEAD per still returned HTTP 200, JPEG metadata and ten-minute caching. A browser-side image tag would avoid collection and republication by the Mountain server. It would still display site content on the dashboard's own page, which Section 2 expressly restricts without a stated household exception. The camera host had no separate display terms at the paths checked. An HTTP response verifies access, while a distinct publisher policy or supported route could resolve display eligibility. The official gallery also blocks framing and documents no embed widget. [Technical and terms findings](review/v0.4.0/whitewater-webcam-research.md)
+
+The optional review launcher exercises 15-minute refresh with local synthetic stills only. The camera timer and preview image policy are available through the review launcher. The installed dashboard keeps its same-origin image policy, fixture gallery and official links. Capture-time interpretation and seasonal continuity remain unverified.
 
 ## Whitewater webcam integration review before v0.3.3
 

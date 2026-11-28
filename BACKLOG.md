@@ -24,7 +24,8 @@
 - [ ] Complete v0.3.4 physical-device acceptance and verify post-upgrade encrypted recovery before scheduling v0.4.0. Verify any optional authenticated remote access under separate approval. Retire simulated Pages only after separate approval.
 - [x] Prepare the v0.4.0 candidate with a synthetic resort gallery, dashboard refinements, local preview and a scratch-tested upgrade utility. [Visual review](review/v0.4.0/README.md)
 - [ ] Review v0.4.0 on the wall and household phones, then approve an exact SHA, version and maintenance window before a Pi upgrade. Review larger wall navigation and chart changes separately.
-- [ ] Reassess in-dashboard Whitewater webcam display when the resort provides an embedding policy or written permission. Confirm supported origins, cadence, camera clocks and seasonal availability.
+- [x] Reassess private browser-side Whitewater viewing separately from collection and public republication. Record HTTP access, cache headers, the display clause and alternatives. Exercise the 15-minute selected-view flow with synthetic images. [Webcam review](review/v0.4.0/whitewater-webcam-research.md)
+- [ ] Enable current in-dashboard resort imagery when a published or confirmed method permits it. Verify refresh behavior, capture-time semantics and seasonal availability on that method.
 - [ ] Validate Nordic and DriveBC road reports and Avalanche Canada region/API and expiry semantics before enabling real ratings. Family/physical-device acceptance and wall navigation integration.
 
 ## Later

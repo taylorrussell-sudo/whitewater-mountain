@@ -20,6 +20,21 @@ The preview runs the same dashboard and local API used by the installed applicat
 
 The loopback URL works on the computer running the preview. The Cloud workspace had SSH access and no configured HTTP preview URL during review. The local launcher and screenshots provide private review without additional hosting. The existing simulated Pages site remains a separate review surface.
 
+## Resort still refresh demo
+
+Run the preview with the optional fixture-only flag and open **Webcams**.
+
+```sh
+python3 -B review/v0.4.0/preview.py --scenario fresh --resort-stills-demo
+```
+
+The demo shows how a browser can refresh a single selected still on a 15-minute interval while the camera view and browser page are visible. It uses local synthetic images with a 10-minute HTTP cache lifetime and ETag revalidation. **Loaded by this browser** records a successful local load. Use the gallery's **Enlarge** control to inspect the selected sample. The regular fixture preview includes the stale Raven and simulated offline Weather Stick states described above.
+
+The flag is available only in this loopback fixture launcher. The installed dashboard continues to show synthetic resort samples and official links. For current resort imagery, open the official Whitewater gallery from Webcams. On a wall computer with desktop window controls, place that provider page beside the dashboard. On a phone, switch to its browser tab. The provider page serves its own stills and time-lapses. [Whitewater webcam research](whitewater-webcam-research.md)
+
+- [Wall demo · 1920 × 1080](wall-resort-refresh-demo.png) shows the selected synthetic Day Lodge still, browser load time, and the separate DriveBC fixture.
+- [Phone demo · 390 × 844](phone-resort-refresh-demo.png) shows the Summit selection with touch controls, browser load time, and the synthetic sample label.
+
 ## Review setup
 
 The baseline is commit `6ee2cf3d6def76e881f3755a1dde05f04e03c1d5` from merged v0.3.4. Screenshots use the same fixture launcher, data, browser settings and viewport on both versions. The launcher adds the synthetic heading to both versions. The baseline's interface displays its inherited v0.3.2.2 label.

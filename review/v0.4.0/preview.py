@@ -2,6 +2,7 @@
 
 import argparse
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -86,22 +87,55 @@ class PreviewInputs:
 
 
 class PreviewHandler(Handler):
+    fixture_etag = None
+
+    def setup(self):
+        super().setup()
+        if self.server.resort_stills_demo:
+            self.protocol_version = "HTTP/1.1"
+
+    def send_header(self, keyword, value):
+        if self.server.resort_stills_demo and keyword == "Content-Security-Policy":
+            value = value.replace("img-src 'self';", "img-src 'self' blob:;")
+        super().send_header(keyword, value)
+
+    def send_content(self, status, data, content_type, retry_in=0, cache="no-store"):
+        self.fixture_etag = None
+        if self.server.resort_stills_demo and status == 200 and content_type == "image/webp":
+            cache = "private, max-age=600"
+            self.fixture_etag = f'"{sha256(data).hexdigest()}"'
+            if self.headers.get("If-None-Match") == self.fixture_etag:
+                self.send_response(304)
+                self.send_header("Cache-Control", cache)
+                self.end_headers()
+                return
+        super().send_content(status, data, content_type, retry_in, cache)
+
+    def end_headers(self):
+        if self.fixture_etag is not None:
+            self.send_header("ETag", self.fixture_etag)
+        super().end_headers()
+
     def dashboard_route(self):
         if self.path not in ("/", "/index.html"):
             super().dashboard_route()
             return
         scenario = self.server.scenario
-        fixture_state = ' data-camera-fixtures="offline"' if scenario == "stale" else ""
+        body_attributes = ["data-live"]
+        if scenario == "stale":
+            body_attributes.append('data-camera-fixtures="offline"')
+        if self.server.resort_stills_demo:
+            body_attributes.append("data-resort-stills-demo")
         heading = f"<strong>Synthetic preview · {SCENARIOS[scenario]}</strong>"
         html = DASHBOARD.read_text(encoding="utf-8").replace(
-            "<body>", f"<body data-live{fixture_state}>", 1).replace(
+            "<body>", f"<body {' '.join(body_attributes)}>", 1).replace(
             "<strong>Private weather dashboard</strong>", heading, 1).replace(
             "<strong>Private weather</strong>", heading, 1).replace(
             "</body>", '<script src="/dashboard.js"></script></body>', 1)
         self.send_content(200, html.encode(), "text/html; charset=utf-8")
 
 
-def serve(scenario, port):
+def serve(scenario, port, resort_stills_demo=False):
     fixtures = PreviewInputs(scenario)
     stop, failed = Event(), Event()
     with TemporaryDirectory(prefix="whitewater-preview-") as directory:
@@ -118,6 +152,7 @@ def serve(scenario, port):
         with LocalAPI(port, path, {source.key for source in sources}, failed, fixtures.clock, collector) as api:
             api.RequestHandlerClass = PreviewHandler
             api.scenario = scenario
+            api.resort_stills_demo = resort_stills_demo
             worker = Thread(target=collector.run, args=(stop, failed), daemon=True)
             worker.start()
             print(f"Synthetic preview · {SCENARIOS[scenario]} · http://127.0.0.1:{api.server_port}", flush=True)
@@ -135,5 +170,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", choices=SCENARIOS, default="fresh")
     parser.add_argument("--port", type=int, default=8766, help="Loopback HTTP port (default 8766)")
+    parser.add_argument("--resort-stills-demo", action="store_true",
+                        help="Demonstrate selected-camera refresh with local fixtures")
     args = parser.parse_args()
-    serve(args.scenario, args.port)
+    serve(args.scenario, args.port, args.resort_stills_demo)

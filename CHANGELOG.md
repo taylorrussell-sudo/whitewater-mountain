@@ -3,6 +3,7 @@
 ## v0.4.0 candidate
 
 - Add a selectable gallery for five Whitewater resort positions using original synthetic stills. Include enlarged viewing and labeled loading, stale and unavailable states. Preserve official camera shortcuts and the licensed DriveBC junction still.
+- Add an optional fixture-only 15-minute browser refresh demo to the local preview. Recheck the five resort JPEGs and record why ordinary top-level viewing, direct image integration and provider page framing have different constraints. [Webcam assessment](review/v0.4.0/whitewater-webcam-research.md)
 - Refine wall and phone layouts and clarify the hierarchy and status of reported snowfall, forecast powder and current conditions. Add a private fixture-only preview with paired screenshots and scenario instructions. [Visual review](review/v0.4.0/README.md)
 - Add a Pi upgrade utility with pinned revision and version checks, staging and backup preflight, bounded health gates, release identification and automatic rollback. Exercise activation and rollback with scratch state and simulated services. [Pi runbook](deploy/pi/README.md#7-update-roll-back-or-remove)
 - Keep the seven source integrations and their refresh budgets, the SQLite format, and the installed ingress and boot configuration compatible with v0.3.4.

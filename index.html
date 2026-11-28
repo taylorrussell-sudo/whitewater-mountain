@@ -190,12 +190,12 @@ button[aria-current=page],button[aria-pressed=true]{color:var(--selected-text)}
 <section id="webcams" class="section">
   <div class="section-title">
     <h2>Mountain webcams</h2>
-    <p>Resort views use synthetic camera samples. Open the official gallery for current stills and time-lapses.</p>
+    <p id="webcam-intro">Resort views use synthetic camera samples. Open the official gallery for current stills and time-lapses.</p>
     <a class="btnlink" href="https://whitewatermountainresort.com/webcams/" target="_blank" rel="noopener noreferrer">Open Whitewater webcam gallery (new tab)</a>
   </div>
   <div id="cameragrid" class="camera-grid">
     <article class="card" id="gallery-camera">
-      <div class="cardhead"><h3 id="gallery-camera-title">Day Lodge</h3><span class="tag">Resort camera samples</span></div>
+      <div class="cardhead"><h3 id="gallery-camera-title">Day Lodge</h3><span id="gallery-mode" class="tag">Resort camera samples</span></div>
       <div id="gallery-frame"></div>
       <div id="gallery-chips" class="chips" role="group" aria-label="Resort camera samples"></div>
       <div id="gallery-links" class="camera-actions" role="group" aria-label="Official resort stills"></div>
@@ -405,6 +405,7 @@ const label=typeof f==='number'?` and freezing level ${f} metres`:'';
 const points=[['Ymir Peak',2393,260,28],['Raven top',2063,237,64],['Summit / Glory tops',2002,213,81],['Snow plot',1950,204,99],['Silver King top',1900,193,116],['Day Lodge',1630,160,151],['Glory base*',1400,126,183],['Nordic Apex*',936,72,226],['Nelson',535,35,264]];const path='M30 269 56 245 76 215 98 211 126 157 146 170 174 116 188 128 211 81 229 92 260 34 278 69 297 60 321 126 342 181 342 269Z';return `<svg class="plot profile" viewBox="0 0 440 292" role="img" aria-label="Schematic mountain elevations${label}${coldAir?", with a schematic cold valley air layer":""}"><defs><clipPath id="clip-${id}"><path d="${path}"/></clipPath>${coldAir?'<pattern id="cold-air-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V6" class="cold-air-hatch"/></pattern>':''}</defs>${[500,1000,1500,2000,2500].map(e=>`<line class="axis" x1="28" x2="435" y1="${y(e)}" y2="${y(e)}"/><text class="sub" x="24" y="${y(e)+3}" font-size="9" text-anchor="end">${e}</text>`).join('')}<path class="land" d="${path}"/>${typeof f==='number'?`<rect clip-path="url(#clip-${id})" class="snow" x="28" y="0" width="320" height="${Math.max(0,y(f))}"/>`:''}<path d="M30 269 76 215 98 211 126 157 146 170 174 116 188 128 211 81 229 92 260 34 248 122 215 192 170 269Z" fill="#fff" opacity=".09"/>${coldAir?'<path class="cold-air-layer" d="M28 249 Q53 246 69 230 Q82 218 100 225 Q113 230 120 246 L131 269H28Z"/><path d="M28 249 Q53 246 69 230 Q82 218 100 225 Q113 230 120 246 L131 269H28Z" fill="url(#cold-air-hatch)"/>':''}${points.map(([n,e,x,ly])=>`<path d="M${x} ${y(e)} H${x+9} L${x+17} ${ly-3} H${Math.min(275,x+22)}" fill="none" stroke="var(--muted)" stroke-width=".8"/><circle cx="${x}" cy="${y(e)}" r="3" fill="var(--panel)" stroke="var(--text)"/><rect x="${Math.min(275,x+22)}" y="${ly-12}" width="${Math.min(435-Math.min(275,x+22),n==='Summit / Glory tops'?205:n.length*5.8+52)}" height="16" rx="3" fill="var(--panel)" opacity=".92"/><text x="${Math.min(275,x+22)+3}" y="${ly}" font-size="10.3" font-weight="600">${n==='Summit / Glory tops'?'Summit / Glory · 2,002 / 2,003 m':n+' · '+e.toLocaleString('en-CA')+' m'}</text>`).join('')}${typeof f==='number'?`<line class="freeze" x1="28" x2="342" y1="${y(f)}" y2="${y(f)}"/><rect x="30" y="8" width="111" height="17" rx="4" fill="var(--panel)" stroke="var(--blue)"/><text x="36" y="20" font-size="10" font-weight="700" style="fill:var(--blue)">0°C · ${f.toLocaleString('en-CA')} m</text>`:marks}<text class="sub" x="30" y="286" font-size="9">* Approximate / verify before live use</text></svg>`}
 function bars(s, labels=days){const max=Math.max(40,Math.ceil(Math.max(...s.snow)/10)*10);const y=v=>116-v/max*90;return `<svg class="plot" viewBox="0 0 550 142" role="img" aria-label="Seven day snowfall: ${s.snow.map(v=>v??'unavailable').join(', ')} centimetres">${[0,max/2,max].map(v=>`<line class="axis" x1="30" x2="543" y1="${y(v)}" y2="${y(v)}"/><text class="sub" x="24" y="${y(v)+4}" font-size="10" text-anchor="end">${v}</text>`).join('')}${s.snow.map((v,i)=>`${v===null?`<text class="sub" x="${66+i*73}" y="105" font-size="12" text-anchor="middle">—</text>`:`<rect x="${45+i*73}" y="${y(v)}" width="43" height="${Math.max(1,116-y(v))}" rx="4" fill="${v>=15?'var(--blue)':'var(--land)'}"/><text x="${66+i*73}" y="${y(v)-5}" font-size="13" text-anchor="middle" font-weight="700">${v}</text>`}<text class="sub" x="${66+i*73}" y="132" font-size="11" text-anchor="middle">${labels[i]}</text>`).join('')}<text class="sub" x="5" y="12" font-size="10">cm</text></svg>`}function freezeChart(s){const y=e=>150-(e-500)/2100*130;return `<svg class="plot" viewBox="0 0 550 180" role="img" aria-label="Freezing levels ${s.fl.join(', ')} metres">${[[936,'Nordic'],[1400,'Glory base'],[1630,'Lodge'],[2063,'Raven']].map(([e,n])=>`<line class="axis" x1="68" x2="540" y1="${y(e)}" y2="${y(e)}"/><text class="sub" x="62" y="${y(e)+3}" text-anchor="end" font-size="10">${n}</text>`).join('')}<polyline points="${s.fl.map((e,i)=>`${84+i*73},${y(e)}`).join(' ')}" fill="none" stroke="var(--blue)" stroke-width="3"/>${s.fl.map((e,i)=>`<circle cx="${84+i*73}" cy="${y(e)}" r="4" fill="var(--blue)"/><text x="${84+i*73}" y="${y(e)-9}" text-anchor="middle" font-size="11">${e}</text><text class="sub" x="${84+i*73}" y="169" text-anchor="middle" font-size="11">${days[i]}</text>`).join('')}</svg>`}
 const liveCameraMode = document.body.hasAttribute('data-live');
+const resortStillsDemo = liveCameraMode && document.body.hasAttribute('data-resort-stills-demo');
 const resortImageHost = 'https://webcams.skiwhitewater.com/webcams';
 const resortCameras = [
   {key: 'lodge', name: 'Day Lodge', description: 'a snow-covered lodge and forested slope'},
@@ -484,9 +485,8 @@ $('gallery-links').innerHTML = resortCameras.map(({name}, i) =>
 $('road-links').innerHTML = cameraLink(roadCamera, 'Official DriveBC camera', true)
   + (liveCameraMode ? `<small>${cameraCredit}</small>` : '');
 
-function updateCameraFrame(container, index, frame, enlarge = true) {
+function prepareCameraFrame(container, index, synthetic, enlarge) {
   const source = cameraSources[index];
-  const synthetic = frame?.synthetic === true;
   if (container.dataset.camera !== String(index) || container.hasAttribute('data-synthetic') !== synthetic) {
     container.dataset.camera = index;
     container.toggleAttribute('data-synthetic', synthetic);
@@ -497,6 +497,12 @@ function updateCameraFrame(container, index, frame, enlarge = true) {
       <p class="camera-empty" role="status"></p>
     </div><p class="live-camera-date" hidden><span></span><time></time></p>`;
   }
+}
+
+function updateCameraFrame(container, index, frame, enlarge = true) {
+  const source = cameraSources[index];
+  const synthetic = frame?.synthetic === true;
+  prepareCameraFrame(container, index, synthetic, enlarge);
   const image = container.querySelector('img');
   const target = container.querySelector('[data-enlarge]');
   const badge = container.querySelector('.camera-preview-label');
@@ -558,6 +564,129 @@ function updateCameraFrame(container, index, frame, enlarge = true) {
   }
 }
 
+const sampleRefreshInterval = 15 * 60 * 1000;
+const sampleLoadTime = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Etc/GMT+7', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+});
+const sampleEntries = new Map();
+let sampleView, sampleVisible = false, sampleTimer;
+const sampleObserver = resortStillsDemo ? new IntersectionObserver(entries => {
+  for (const entry of entries) {
+    if (entry.target === sampleView?.container) {
+      sampleVisible = entry.intersectionRatio >= 0.01;
+      scheduleSampleRefresh();
+    }
+  }
+}, {threshold: 0.01}) : null;
+
+if (resortStillsDemo) {
+  $('gallery-mode').textContent = 'Simulated refresh demo';
+  $('webcam-intro').textContent = 'Selected samples demonstrate browser refresh timing. Open the official gallery for current stills and time-lapses.';
+  document.addEventListener('visibilitychange', scheduleSampleRefresh);
+}
+
+function renderSampleView() {
+  const {container, index, enlarge} = sampleView;
+  prepareCameraFrame(container, index, true, enlarge);
+  const entry = sampleEntries.get(index);
+  const target = container.querySelector('[data-enlarge]');
+  const oldImage = container.querySelector('img');
+  const image = entry?.image;
+  if (image && image !== oldImage) {
+    if (oldImage) oldImage.replaceWith(image);
+    else (target ?? container.querySelector('.live-camera')).prepend(image);
+  } else if (!image && oldImage?.hasAttribute('src')) {
+    oldImage.remove();
+  }
+  if (target) target.hidden = !image;
+  container.querySelector('.camera-preview-label').hidden = !image;
+  const empty = container.querySelector('.camera-empty');
+  empty.hidden = !!image;
+  const message = entry?.failed ? 'Sample image unavailable' : 'Loading still…';
+  if (empty.textContent !== message) empty.textContent = message;
+
+  const date = container.querySelector('.live-camera-date');
+  date.hidden = !image;
+  if (image) {
+    date.querySelector('span').textContent = 'Loaded by this browser ';
+    const time = date.querySelector('time');
+    time.dateTime = entry.loadedAt.toISOString();
+    time.textContent = `${sampleLoadTime.format(entry.loadedAt)} PT`;
+  }
+}
+
+async function loadSample(source) {
+  const response = await fetch(`/mountain_service/camera_fixtures/${source.key}.webp`, {
+    cache: 'default', redirect: 'error', signal: AbortSignal.timeout(5000),
+  });
+  const imageType = response.headers.get('Content-Type')?.split(';')[0];
+  if (!response.ok || imageType !== 'image/webp') throw new Error('Sample image unavailable');
+  const imageUrl = URL.createObjectURL(await response.blob());
+  const image = new Image();
+  image.alt = `Synthetic sample showing ${source.description}`;
+  image.decoding = 'async';
+  try {
+    image.src = imageUrl;
+    await image.decode();
+    return image;
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+async function scheduleSampleRefresh() {
+  clearTimeout(sampleTimer);
+  if (!sampleView || !sampleVisible || document.hidden) return;
+  const {index} = sampleView;
+  const entry = sampleEntries.get(index) ?? {};
+  if (entry.loading) return;
+  const now = performance.now();
+  const wait = entry.attemptedAt === undefined ? 0 : entry.attemptedAt + sampleRefreshInterval - now;
+  if (wait > 0) {
+    sampleTimer = setTimeout(scheduleSampleRefresh, wait);
+    return;
+  }
+  entry.loading = true;
+  entry.attemptedAt = now;
+  sampleEntries.set(index, entry);
+  try {
+    entry.image = await loadSample(resortCameras[index]);
+    entry.loadedAt = new Date();
+    entry.failed = false;
+  } catch {
+    entry.image = null;
+    entry.loadedAt = null;
+    entry.failed = true;
+  } finally {
+    entry.loading = false;
+    if (sampleView?.index === index) {
+      renderSampleView();
+      scheduleSampleRefresh();
+    }
+  }
+}
+
+function syncSampleView() {
+  if (!resortStillsDemo) return;
+  let view;
+  if (cameraDialog.open) {
+    if (dialogCam !== roadCamera) view = {container: dialogFrame, index: dialogCam, enlarge: false};
+  } else if ($('webcams').classList.contains('active')) {
+    view = {container: galleryFrame, index: galleryCam, enlarge: true};
+  } else if ($('overview').classList.contains('active') && cam !== roadCamera) {
+    view = {container: camhero, index: cam, enlarge: true};
+  }
+  const previousContainer = sampleView?.container;
+  if (previousContainer !== view?.container) {
+    if (previousContainer) sampleObserver.unobserve(previousContainer);
+    sampleVisible = false;
+    if (view) sampleObserver.observe(view.container);
+  }
+  sampleView = view;
+  if (view) renderSampleView();
+  scheduleSampleRefresh();
+}
+
 function markCameraSelection(group, selected) {
   [...$(group).children].forEach((button, i) => {
     button.setAttribute('aria-pressed', i === selected);
@@ -568,17 +697,20 @@ function renderCam() {
   if ($('camlink').dataset.camera !== String(cam)) {
     $('camlink').dataset.camera = cam;
     $('camlink').innerHTML = cameraLink(cam, cam === roadCamera ? 'Official DriveBC camera' : 'Official camera still')
-      + (cam === roadCamera && liveCameraMode ? `<small>${cameraCredit}</small>` : '');
+      + (cam === roadCamera && liveCameraMode ? `<small>${cameraCredit}</small>`
+        : resortStillsDemo ? '<small>Simulated refresh demo</small>' : '');
   }
   markCameraSelection('camchips', cam);
-  updateCameraFrame(camhero, cam, cameraSourceFrame(cam));
+  if (!resortStillsDemo || cam === roadCamera) updateCameraFrame(camhero, cam, cameraSourceFrame(cam));
+  syncSampleView();
 }
 
 function renderGallery() {
   $('gallery-camera-title').textContent = cameraSources[galleryCam].name;
   markCameraSelection('gallery-chips', galleryCam);
-  updateCameraFrame(galleryFrame, galleryCam, cameraSourceFrame(galleryCam));
+  if (!resortStillsDemo) updateCameraFrame(galleryFrame, galleryCam, cameraSourceFrame(galleryCam));
   updateCameraFrame(roadFrame, roadCamera, cameraSourceFrame(roadCamera));
+  syncSampleView();
 }
 
 function updateLiveRoadCamera(frame) {
@@ -607,17 +739,22 @@ document.addEventListener('click', event => {
   $('dialog-camera-links').innerHTML = dialogCam === roadCamera
     ? cameraLink(roadCamera, 'Official DriveBC camera', true)
       + (liveCameraMode ? `<small>${cameraCredit}</small>` : '')
-    : cameraLink(dialogCam, 'Official camera still', true);
+    : cameraLink(dialogCam, 'Official camera still', true)
+      + (resortStillsDemo ? '<small>Simulated refresh demo</small>' : '');
   cameraDialog.showModal();
-  updateCameraFrame(dialogFrame, dialogCam, cameraSourceFrame(dialogCam), false);
+  if (!resortStillsDemo || dialogCam === roadCamera) {
+    updateCameraFrame(dialogFrame, dialogCam, cameraSourceFrame(dialogCam), false);
+  }
+  syncSampleView();
 });
 cameraDialog.querySelector('[data-close-camera]').addEventListener('click', () => cameraDialog.close());
 cameraDialog.addEventListener('close', () => {
   dialogFrame.replaceChildren();
   delete dialogFrame.dataset.camera;
   delete dialogFrame.dataset.synthetic;
+  syncSampleView();
 });
 function danger(s){return `<div class="danger">${['Alpine','Treeline','Below treeline'].map((n,i)=>`<div class="d${s.danger[i]}"><small>${n}</small><strong>${s.danger[i]} · ${['','Low','Moderate','Considerable','High','Extreme'][s.danger[i]]}</strong></div>`).join('')}</div><p class="warn"><strong>Simulated ratings only.</strong> Live bulletin not connected.</p>`}function totals(s,seven=false){let a=seven?[[sum(s.snow),'Next 7 days'],[peak(s).n,'Peak 24h / 72h'],[s.actual,'Reported 24h']]:[[s.snow[0],'Next 24h'],[sum(s.snow.slice(0,2)),'Next 48h'],[sum(s.snow.slice(0,3)),'Next 72h']];return a.map(([n,l])=>`<div><strong>${n} cm</strong><span>${l}</span></div>`).join('')}
 function render(){const s=sc[active],p=peak(s);$('metrics').innerHTML=[[s.overnight+' cm','Overnight'],[s.actual+' cm','Last 24h'],[s.depth+' cm','Snowpack'],[s.season+' cm','Season snowfall'],[fmt(s.summit),'Summit temp'],[fmt(s.lodge),'Lodge temp']].map(([v,l])=>`<div class="metric"><strong>${v}</strong><span class="metric-label">${l}</span></div>`).join('');renderInversion(s);$('powdercards').innerHTML=$('powdercards2').innerHTML=pair(s);$('powdersummary').textContent=`Peak forecast: ${p.n} cm from +${p.start}h to +${p.start+24}h. ${s.quality}.`;$('overviewchart').innerHTML=$('powderchart').innerHTML=bars(s);$('dailystrip').innerHTML=s.temp.map((t,i)=>`<div><span>${days[i]}</span><strong>${fmt(t)}</strong><span>${s.fl[i]} m · 0°C</span></div>`).join('');$('dangerOverview').innerHTML=$('dangerDetail').innerHTML=danger(s);$('nordictemp').textContent=fmt(s.nordic)+' · demo';$('totals').innerHTML=totals(s);$('totals2').innerHTML=totals(s,true);$('timing').textContent=`${s.hours} · scenario description. Hourly demo assumes uniform snowfall within each 24h period; real timing needs hourly model data.`;$('quality').innerHTML=[['Snowfall',s.actual+' cm reported / '+p.n+' cm peak forecast'],['Temperature',fmt(s.summit)+' summit'],['Wind',s.wind+' km/h · illustrative'],['Freezing level',s.freeze+' m'],['Interpretation',s.quality],['Confidence','Not calibrated']].map(([l,v])=>`<div class="row"><span>${l}</span><strong>${v}</strong></div>`).join('');$('freezechart').innerHTML=freezeChart(s)}
-function show(tab){document.querySelectorAll('.section').forEach(e=>e.classList.toggle('active',e.id===tab));document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});if(tab==='webcams')renderGallery();window.scrollTo(0,0)}document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.tab)show(b.dataset.tab);if(b.dataset.go){show(b.dataset.go);const heading=$(b.dataset.go).querySelector('h2');heading.setAttribute('tabindex','-1');heading.focus({preventScroll:true})}});$('scenario').addEventListener('change',e=>{active=e.target.value;render();renderCam();if($('webcams').classList.contains('active'))renderGallery()});const setTheme=()=>{let v=$('theme').value;document.documentElement.dataset.theme=v==='auto'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):v};$('theme').addEventListener('change',setTheme);matchMedia('(prefers-color-scheme: dark)').addEventListener('change',setTheme);$('motion').addEventListener('change',e=>document.documentElement.classList.toggle('no-motion',e.target.checked));$('thresholds').innerHTML=['0–4','5–9','10–14','15–24','25–39','40+'].map((v,i)=>`<tr><td>${v} cm</td><td>${levels[i]}</td><td>${['Static','Highlight','Soft glow','Pulse','Strong glow','Enhanced glow'][i]}</td></tr>`).join('');function demoFreeze(){let f=+$('freezeDemo').value;$('freezeValue').textContent=f+' m';$('infoprofile').innerHTML=profile(f,'info')}function demoSnow(){let n=+$('snowDemo').value;$('snowValue').textContent=n+' cm';$('snowDemoCard').innerHTML=ring(n)}$('freezeDemo').addEventListener('input',demoFreeze);$('snowDemo').addEventListener('input',demoSnow);if(!document.body.hasAttribute('data-live'))render();renderCam();demoFreeze();demoSnow();
+function show(tab){document.querySelectorAll('.section').forEach(e=>e.classList.toggle('active',e.id===tab));document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});if(tab==='webcams')renderGallery();else syncSampleView();window.scrollTo(0,0)}document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.tab)show(b.dataset.tab);if(b.dataset.go){show(b.dataset.go);const heading=$(b.dataset.go).querySelector('h2');heading.setAttribute('tabindex','-1');heading.focus({preventScroll:true})}});$('scenario').addEventListener('change',e=>{active=e.target.value;render();renderCam();if($('webcams').classList.contains('active'))renderGallery()});const setTheme=()=>{let v=$('theme').value;document.documentElement.dataset.theme=v==='auto'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):v};$('theme').addEventListener('change',setTheme);matchMedia('(prefers-color-scheme: dark)').addEventListener('change',setTheme);$('motion').addEventListener('change',e=>document.documentElement.classList.toggle('no-motion',e.target.checked));$('thresholds').innerHTML=['0–4','5–9','10–14','15–24','25–39','40+'].map((v,i)=>`<tr><td>${v} cm</td><td>${levels[i]}</td><td>${['Static','Highlight','Soft glow','Pulse','Strong glow','Enhanced glow'][i]}</td></tr>`).join('');function demoFreeze(){let f=+$('freezeDemo').value;$('freezeValue').textContent=f+' m';$('infoprofile').innerHTML=profile(f,'info')}function demoSnow(){let n=+$('snowDemo').value;$('snowValue').textContent=n+' cm';$('snowDemoCard').innerHTML=ring(n)}$('freezeDemo').addEventListener('input',demoFreeze);$('snowDemo').addEventListener('input',demoSnow);if(!document.body.hasAttribute('data-live'))render();renderCam();demoFreeze();demoSnow();
 </script></body></html>

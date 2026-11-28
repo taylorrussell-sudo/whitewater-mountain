@@ -15,7 +15,7 @@ Open `http://127.0.0.1:8765` for the private dashboard. Collection defaults to d
 
 The Webcams tab previews the five Whitewater camera positions with labeled synthetic stills and retains the official gallery and individual still links. The licensed DriveBC junction view uses the existing private integration. [Webcam integration review](DATA_SOURCES.md#whitewater-webcam-integration-in-v040)
 
-The [v0.4.0 visual review](review/v0.4.0/README.md) includes before-and-after wall and phone screenshots and instructions for launching a local synthetic preview.
+The [v0.4.0 visual review](review/v0.4.0/README.md) includes wall and phone screenshots and a loopback preview. Start the preview with `--resort-stills-demo` to review selected-camera refresh timing using local synthetic stills. The resort's published display restriction applies to in-dashboard use of the JPEGs under this review. In the normal dashboard, the live resort files open through the official links. [Technical and terms findings](review/v0.4.0/whitewater-webcam-research.md)
 
 ## Automated regression checks
 
