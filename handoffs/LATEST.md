@@ -1,3 +1,3 @@
 # Latest handoff
 
-[v0.3.3 private Raspberry Pi deployment package](2026-11-26_1904_v0-3-3-private-pi-package.md)
+[v0.3.4 deployment reliability and documentation](2026-11-27_1939_v0-3-4-deployment-reliability.md)
