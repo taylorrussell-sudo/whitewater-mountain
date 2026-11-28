@@ -1,3 +1,3 @@
 # Latest handoff
 
-[v0.3.4 firewall parity and upgrade verification](2026-11-27_2249_v0-3-4-firewall-parity.md)
+[Whitewater Mountain v0.4.0 candidate](2026-11-27_2319_v0-4-0-candidate.md)
